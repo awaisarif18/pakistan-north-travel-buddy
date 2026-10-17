@@ -12,6 +12,9 @@ reviewed on 2026-10-17. Costs, billed token totals, exact historical timings, an
 complete HTTP logs were not recorded. Commands below reproduce the operations;
 they are not a complete terminal transcript.
 
+Stages 1-7 describe the released v1.0 implementation. Stage 8 records the local
+v1.1 framework migration; the deployed application remains on v1.0.
+
 ## Stage 1: environment setup
 
 **Implemented and why.** The folder initially contained the PDF, `.env`,
@@ -561,3 +564,185 @@ Suggested GitHub About settings, without changing them during this task:
 GitHub CLI is available and authenticated; repository metadata can be updated
 if requested. The proposed release uses Git tag `v1.0.0` and GitHub release title
 `v1.0.0 — Initial RAG MVP`. Neither is created without explicit approval.
+
+
+## Stage 8: v1.1 LangChain and LangGraph migration
+
+**Scope and release protection.** Work is isolated on `feature/v1.1-langgraph`.
+Stable local `main`, remote `main`, and the peeled `v1.0.0` tag all pointed to
+`cc7096c388165566b9cf16799839b8ff442c2e0b` before migration. The original
+`rag.py`, `ingest.py`, `evaluate.py`, audited labels/results, and deployed Chroma
+files are unchanged. No deployment or push to `main` was performed.
+
+The initial Python environment was 3.13.7, with ChromaDB 1.5.9,
+google-genai 1.75.0, Streamlit 1.66.0, and Pydantic 2.14.1. No LangChain or
+LangGraph packages were present. A separate `.venv-v1.1` preserves that working
+v1.0 environment; its local ignore entry is in `.git/info/exclude`.
+
+**Dependencies and compatibility.** Versions were checked against PyPI package
+metadata and official integration documentation, installed in the isolated
+Windows Python 3.13.7 environment, and passed `python -m pip check`.
+
+| Dependency | Tested v1.1 version |
+|---|---|
+| PyMuPDF | 1.28.2, unchanged |
+| chromadb | 1.5.9, unchanged |
+| google-genai | 2.20.0 |
+| streamlit | 1.66.0, unchanged |
+| python-dotenv | 1.2.4, unchanged |
+| langchain-core | 1.6.12 |
+| langchain-google-genai | 4.4.2 |
+| langchain-chroma | 1.1.0 |
+| langgraph | 1.2.16 |
+| langsmith | 0.14.11 |
+
+The current Gemini integration requires google-genai >=2.20.0, so v1.0's 1.75.0
+pin could not be retained on this branch. Models remain `gemini-embedding-2`
+and `gemini-3.8-flash`. The top-level `langchain` package is omitted because
+its agent factories are not used. Core and the provider packages supply the
+needed abstractions. LangSmith is a required transitive dependency of Core.
+No service or credential was created by the migration. During the final checks,
+user-supplied local settings enabled `LANGSMITH_TRACING` with a key and project;
+the concurrent `.env.example` additions contain placeholders and were preserved.
+Tracing is optional and is not needed for the graph to answer questions. No
+such settings were deployed to the v1.0 app.
+The earlier Linux Python 3.12 readiness check belongs to v1.0. This migration
+was tested on Windows Python 3.13.7 and has not been redeployed or separately
+validated in a new Linux/Cloud environment.
+
+**Architecture.** `workflow.py` introduces one small typed `StateGraph`:
+
+```mermaid
+flowchart LR
+    START --> P[Prepare question]
+    P --> R[Retrieve relevant evidence]
+    R --> G[Generate grounded answer]
+    G --> V[Validate citations]
+    V --> END
+```
+
+The state carries the original question, LangChain `Document` objects, source
+matches, structured answer payload, and validated final answer. Preparation
+rejects blank questions without trimming valid input, preserving cache-key
+semantics. A LangChain Chroma similarity retriever returns the top five existing
+chunks. `VerifiedEmbeddings.embed_query` delegates to the untouched v1.0 query
+cache and embedding code. It preserves the exact `task: search result | query:`
+prefix, 3,072 dimensions, model, SHA-256 cache key, and atomic cache writes.
+`embed_documents` rejects calls so this query-only adapter cannot regenerate
+stored vectors. Ingestion retains v1.0's document prefix and implementation.
+
+A `ChatPromptTemplate` and `ChatGoogleGenerativeAI.with_structured_output` use
+native JSON schema with the retrieved source IDs as the allowed enum. The
+grounding instruction was checked against v1.0 and is identical; temperature
+0.2 and the 1,800-token output limit are preserved. Validation delegates to
+v1.0's unchanged `format_answer`, so physical page citations still come from
+retrieved metadata rather than model-generated page numbers. The Streamlit
+integration only changes its resource factory and invocation; the UI/CSS are
+preserved. No tools, autonomous loops, graph persistence, memory, or new database
+were introduced.
+
+**Verification and results.** Before installing migration packages, the stable
+SDK 1.75.0 implementation saved top-ten results for all 25 verified questions,
+using existing cached query vectors and an index copy. `verify_migration.py`
+compares the migrated retriever with that snapshot when present, the retained
+v1.0 retrieval function, and the 20 answerable rankings already in the audited
+CSV. Each verification run uses another copied database and blocks real
+embedding calls. The original index is not opened for migration tests.
+
+| Check | Actual result |
+|---|---|
+| Existing collection size | 49 vectors |
+| Ordered top-ten rankings matching v1.0 | 25/25 |
+| Top-five retriever prefixes matching v1.0 | 25/25 |
+| Archived answerable rankings matching | 20/20 |
+| Chunk IDs, text, and page metadata | Identical |
+| Maximum cosine-distance difference | 0.0 |
+| Original index file hashes | Unchanged |
+| Original labels/evaluation/backend hashes | Unchanged |
+| Real query/document embedding calls | 0/0 |
+| Supported live answers reviewed | 2/2 pass |
+| Unsupported live questions reviewed | 2/2 appropriate refusal |
+
+The fingerprint of sorted IDs, text, metadata, and vectors matched between the
+stable snapshot and migration: `394c832e5e8bee68fa9f85fca85d97421081139d29838e162be5fe30e2c21dc6`.
+Per-question ordered IDs and distances are saved separately in
+[`evals/v1_1_parity.csv`](../evals/v1_1_parity.csv). Original Hit@5 1.0000,
+MRR@10 0.9667, and CompleteEvidence@5 1.0000 remain the audited v1.0 scores;
+no original evaluation file was overwritten. q07's rank-three gold remains
+rank three. No ranking difference required investigation or a retrieval change.
+
+Focused checks also covered exact embedding request formatting and cache reuse,
+blocked document embedding, the four graph nodes in order, blank questions,
+unknown/missing citation IDs, empty supported answers, and a no-evidence refusal
+without generation. The actual LangChain JSON parser accepted the expected
+structured response fixture. Streamlit initial rendering, submission through
+the graph, five source passages, PDF citations, reset, and a single generation
+across reruns passed an AppTest check with a mocked model. That UI check made
+no Gemini API calls. Local machine-readable artifacts remain under ignored
+`data/v1.1-checks/`.
+
+### Live answer spot checks
+
+Four fresh generation requests used the actual migrated graph and existing
+cached query vectors. The two supported answers were compared with the original
+PDF and approved evidence; the two negatives matched their approved labels.
+No additional LLM judge was used. These four observations do not establish
+general generation equivalence or answer accuracy.
+
+#### q01: Where should I refuel before traveling to Khunjerab Pass?
+
+> You should fill up completely in Sost, which is the last Pakistani town before the Khunjerab border and the final place with reliable fuel before the pass. There is no fuel whatsoever on the roughly 75 to 90 km one-way stretch between Sost and Khunjerab Pass. [PDF pages 6-8]
+>
+> Earlier along the route, it is also advised to fill up in Karimabad or Aliabad before continuing up-valley toward Sost and Khunjerab, as Passu has limited refueling options. [PDF pages 6-8]
+
+Review: **pass**. Original PDF page 7 confirms Sost, the fuel-free 75-90 km leg, and earlier Karimabad/Aliabad guidance.
+
+#### q17: How can I reach Skardu from Islamabad by public bus, and when does Deosai close to vehicles?
+
+> To reach Skardu from Islamabad by public bus, NATCO operates direct daily departures around 2:00 pm. The journey takes an estimated 12 to 14 hours, with fares ranging from approximately PKR 4,630 to 5,500 depending on the bus class. [PDF pages 37-39; PDF pages 10-14]
+>
+> Deosai National Park closes to vehicles roughly from November to May because of snow. [PDF pages 39-40]
+
+Review: **pass**. Original PDF pages 11 and 38 confirm NATCO, fares, daily departure and duration; page 40 confirms the November-May vehicle closure.
+
+#### q21: What will the weather in Hunza be tomorrow?
+
+> I couldn't find that information in the PDF.
+
+Review: **pass**. Correctly refuses live weather, absent from the static guide, without citations.
+
+#### q25: What are the exact GPS coordinates of Monday Lake?
+
+> I couldn't find that information in the PDF.
+
+Review: **pass**. Correctly refuses unresolved Monday Lake coordinates, matching the approved negative label, without citations.
+
+**Problems and decisions.** The necessary SDK major-version upgrade was
+isolated from v1.0, and the official embedding wrapper was avoided because it
+would bypass the verified cache/prefix contract. The small adapter preserved
+retrieval exactly. The SDK emitted a non-fatal automatic-function-calling
+advisory during generation; no tools were supplied or called, and the workflow
+contains no tool loop. There were no retrieval parity failures or live answer
+failures. No document re-embedding was needed.
+
+**Files and commands.** New `workflow.py`, `verify_migration.py`, and
+`evals/v1_1_parity.csv`; modified `app.py`, `requirements.txt`, README, and this
+report. The existing backend and evaluation remain available as reference.
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv-v1.1\Scripts\python.exe verify_migration.py
+.\.venv-v1.1\Scripts\python.exe verify_migration.py --live
+.\.venv-v1.1\Scripts\python.exe -m streamlit run app.py
+```
+
+The offline parity command requires the existing local query cache for all 25
+verified questions. It fails before any paid embedding request if that cache
+is missing. `--live` explicitly opts into up to four answer calls, saving each
+result immediately and reusing matching saved outputs; changed code/model or
+question text requires review rather than silent reuse. Manual source review
+statuses are stored with those outputs. No deployment is part of this milestone.
+
+Sources used for integration behavior: [LangChain Gemini integration](https://docs.langchain.com/oss/python/integrations/chat/google_generative_ai),
+[Chroma integration](https://docs.langchain.com/oss/python/integrations/vectorstores/chroma),
+and [LangGraph typed graph API](https://docs.langchain.com/oss/python/langgraph/graph-api).

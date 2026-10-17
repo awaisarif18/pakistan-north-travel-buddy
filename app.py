@@ -1,4 +1,4 @@
-"""Run with: streamlit run app.py. Presentation only; RAG lives in rag.py."""
+"""Run with: streamlit run app.py. Presentation only; RAG runs in workflow.py."""
 
 from html import escape
 from pathlib import Path
@@ -7,7 +7,8 @@ import re
 import streamlit as st
 from google.genai import errors
 
-from rag import TRAVEL_NOTICE, generate_answer, gemini_client, open_collection, page_label, retrieve
+from rag import TRAVEL_NOTICE, page_label
+from workflow import build_workflow, chat_model, open_retriever
 
 st.set_page_config(page_title="Pakistan North Tours AI", page_icon="🏔️", layout="wide")
 st.html(f"<style>{Path(__file__).with_name('ui.css').read_text(encoding='utf-8')}</style>")
@@ -26,7 +27,7 @@ CITATION = r"\[(PDF pages? \d+(?:-\d+)?(?:; PDF pages? \d+(?:-\d+)?)*)\]"
 
 @st.cache_resource
 def resources():
-    return open_collection(), gemini_client()
+    return build_workflow(open_retriever(), chat_model())
 
 
 def show_answer(message):
@@ -106,7 +107,7 @@ with st.sidebar:
 st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'
         '<span class="workspace-tag"><i></i> Your guide to the north</span></header>')
 try:
-    collection, client = resources()
+    workflow = resources()
 except Exception:
     st.error("The guide could not be opened. Check the local index and Gemini configuration, then reload the app.")
     st.stop()
@@ -128,8 +129,8 @@ if question:
         with st.container(key="chat_assistant_pending"):
             with st.chat_message("assistant", avatar=":material/landscape:"):
                 with st.spinner("Searching the guide…"):
-                    matches = retrieve(collection, client, question)
-                    answer = generate_answer(client, question, matches)
+                    result = workflow.invoke({"question": question})
+                    matches, answer = result["matches"], result["answer"]
         message = {"role": "assistant", **answer, "matches": matches}
         st.session_state.messages.extend([{"role": "user", "text": question}, message])
         st.rerun()

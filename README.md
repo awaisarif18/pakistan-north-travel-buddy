@@ -4,6 +4,10 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
+**v1.1 development branch:** `feature/v1.1-langgraph` migrates the local chatbot
+to LangChain and a linear LangGraph. The live demo, `main`, and tag `v1.0.0`
+remain on the stable v1.0 implementation. This migration has not been deployed.
+
 ## Live demo and source code
 
 **[Open the live demo](https://pakistan-north-travel-ai.streamlit.app/)** · **[View the source on GitHub](https://github.com/awaisarif18/pakistan-north-travel-buddy)**
@@ -43,11 +47,12 @@ flowchart LR
     P[92-page PDF] --> X[PyMuPDF extraction and chunking]
     X --> E[Gemini document embeddings, once]
     E --> C[(Persistent ChromaDB: 49 vectors)]
-    Q[User question] --> QE[Cached Gemini query embedding]
+    Q[User question] --> PQ[Prepare question]
+    PQ --> QE[Verified cached Gemini query embedding adapter]
     QE --> C
     C --> R[Top five passages]
-    R --> G[Gemini answer with source IDs]
-    G --> V[Python validates IDs and adds PDF citations]
+    R --> G[LangChain prompt and structured Gemini answer]
+    G --> V[Validate source IDs and add PDF citations]
     V --> UI[Streamlit answer and source evidence]
 ```
 
@@ -60,6 +65,15 @@ The model selects source IDs rather than inventing page numbers. The application
 validates those IDs and appends page ranges from the retrieved metadata. This
 checks citation references, not the truth of every generated statement.
 
+`workflow.py` compiles typed state into four LangGraph nodes:
+`START → prepare_question → retrieve_evidence → generate_grounded_answer → validate_citations → END`.
+Retrieval uses LangChain `Document` objects and a similarity retriever over the
+existing Chroma collection. The embedding adapter delegates to v1.0's exact
+query-prefix, dimension, cache-key, and cache-write implementation in `rag.py`.
+It blocks document embedding. The original `rag.py`, ingestion, and evaluator
+remain intact as the migration reference. No agents, tools, loops, checkpointer,
+or conversational memory were added.
+
 ## Technology stack
 
 | Component | Technology |
@@ -69,15 +83,31 @@ checks citation references, not the truth of every generated statement.
 | Embeddings | `gemini-embedding-2`, 3,072 dimensions |
 | Vector storage | ChromaDB 1.5.9, persistent cosine index |
 | Answer generation | `gemini-3.8-flash` |
-| Gemini client | Official `google-genai` SDK 1.75.0 |
+| Gemini client | Official `google-genai` SDK 2.20.0 on this branch; v1.0 retains 1.75.0 |
+| LangChain interfaces | langchain-core 1.6.12 |
+| Gemini integration | langchain-google-genai 4.4.2 |
+| Chroma integration | langchain-chroma 1.1.0 |
+| Workflow | langgraph 1.2.16 |
+| Transitive tracing dependency | langsmith 0.14.11; optional tracing through environment settings |
 | Interface | Streamlit 1.66.0, custom CSS, native chat components |
 | Local configuration | python-dotenv 1.2.4 |
 | Hosting | GitHub and Streamlit Community Cloud |
 
-The implementation uses direct SDK calls and simple Python functions, without
-LangChain, agents, a separate database server, or additional UI frameworks.
+The development branch uses LangChain Core and provider integrations directly.
+The top-level `langchain` agent package is unnecessary for this workflow and is
+not installed. The Gemini integration requires the SDK upgrade; the separate
+local v1.1 virtual environment preserves the working v1.0 environment.
+
+Optional LangSmith tracing reads `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and
+`LANGSMITH_PROJECT` from your private environment. The final local environment
+has tracing enabled through user-supplied settings; tracing is not required
+for retrieval or answer generation. Keep real tracing keys private, like the
+Gemini key. No tracing configuration was deployed to the live v1.0 app.
 
 ## Evaluation methodology and results
+
+The following audited v1.0 results and original evaluation files are preserved.
+Migration parity is recorded separately below; these scores were not overwritten.
 
 The curated dataset contains 10 direct factual questions, five paraphrased
 questions, five multi-fact questions, and five unanswerable questions. Gold
@@ -138,7 +168,45 @@ Review the evidence and methodology:
 - [Recorded answer-quality review](evals/answer_quality.md)
 - [Full development process and technical report](docs/PROJECT_REPORT.md)
 
+### v1.1 migration verification
+
+All 25 verified questions matched the v1.0 top-ten ordering, chunk text, page
+metadata, and cosine distances exactly. Maximum distance difference was `0.0`.
+The 20 archived answerable-question rankings also matched, and top-five
+retriever results matched each baseline prefix. The collection still contains
+49 vectors. The deployed index files, original backend, labels, and evaluation
+reports remain unchanged. See [per-question parity results](evals/v1_1_parity.csv).
+
+Four fresh LangChain/LangGraph answer checks covered q01, q17, q21, and q25.
+The two supported answers matched the PDF, including multi-fact evidence for
+Skardu transport and Deosai closure; both unsupported questions refused without
+citations. These selected checks do not replace the original ten-answer review.
+Graph order, invalid citation rejection, cached embedding request formatting,
+and Streamlit startup/submit/reset passed focused checks. No document embeddings
+or real query embeddings were generated during verification.
+
 ## Local installation and usage
+
+For this existing workspace, run v1.1 in its separate environment:
+
+```powershell
+git switch feature/v1.1-langgraph
+python -m venv .venv-v1.1
+.\.venv-v1.1\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv-v1.1\Scripts\python.exe verify_migration.py
+.\.venv-v1.1\Scripts\python.exe -m streamlit run app.py
+```
+
+Keep an existing `.venv-v1.1` rather than recreating it. This local environment
+is excluded through `.git/info/exclude`. `verify_migration.py` requires the
+existing local `data/query_embeddings.json` cache for all 25 questions and fails
+before making embedding requests if any entry is missing. It tests a copied
+index, never the deployed snapshot. Optional `--live` generates at most four
+answers and reuses saved migration outputs when code/model/question match;
+it makes no new calls on a matching rerun. Manual answer review is still needed.
+
+General setup for a fresh checkout follows. The live `main` branch still has
+v1.0's requirements; install the requirements from whichever branch you run.
 
 The complete index is included in the repository. The source PDF and extraction
 files are not needed to run the chatbot. Python 3.12 matches the deployment
