@@ -200,19 +200,26 @@ in the UI even when a generated paragraph uses present tense.
 
 ## Stage 6: retrieval evaluation
 
-**Implemented.** `evals/questions.json` has 25 drafts: 10 direct, 5 paraphrased,
+**Implemented.** `evals/questions.json` has 25 reviewed questions: 10 direct, 5 paraphrased,
 5 multi-fact, and 5 unanswerable. Answerable questions cover fuel, Hunza,
 Baltistan, Astore, Gilgit/Naltar, Neelum, Swat, Chitral, and Galliyat. Each has
 an ID, category, answerability, gold chunk IDs, physical PDF pages, reference
-answer, excerpts, and verification status. Candidate excerpts were checked
-against saved chunks/page text. That drafting check is not user verification;
-all 25 entries remain `needs_review`.
+answer, excerpts, and verification status. Initial candidate excerpts were checked
+against saved chunks/page text and kept as `needs_review`. The user subsequently
+completed an independent source-consistency review against the original PDF and
+49 chunks, supplied corrected labels, and approved them. All 25 are now marked
+`verified`. The 20 answerable questions are scored; five unanswerable cases are
+excluded from the retrieval metrics.
 
 **Why.** Inspectable labels are more credible than inferring accuracy from a few
 examples. Exact chunk IDs avoid labeling unrelated passages from the same page.
 Alternative evidence is included where identified, such as both the NATCO fare
 table and Skardu transport section. Multi-fact questions list the chunks needed
-for different facts. Labels may still need corrections or additional evidence.
+for different facts. The corrected labels add `p008-010-a7bee3da530b` as valid
+Deosai-closure evidence for q04 and q17, alongside the original park passage.
+The five multi-fact questions, q16-q20, include `required_evidence_groups`.
+All gold IDs and group alternatives were validated against the existing index
+and chunks before evaluation, without modifying the reviewed evidence.
 
 **Method.** `evaluate.py` retrieves ten chunks for each verified answerable
 question using the existing index and query cache. Let `r_i` be the first gold
@@ -220,6 +227,13 @@ chunk's rank in those ten results:
 
 - `Hit@5 = sum(1 if r_i <= 5 else 0) / N`.
 - `MRR@10 = sum(1 / r_i if a gold chunk appears in the first 10 else 0) / N`.
+- `CompleteEvidence@5 = multi-fact questions with every required evidence group represented in the top five / verified multi-fact questions`.
+
+For CompleteEvidence@5, chunk IDs within a required group are alternatives;
+at least one must be retrieved. All groups must be represented. The metric
+uses only verified multi-fact questions, while the original metrics use all
+verified answerable questions. Missing groups and the ten rank-ordered IDs,
+page ranges, and cosine distances are saved per question in the CSV.
 
 `N` is the number of verified answerable questions. Unverified and unanswerable
 entries are excluded. Both metrics can succeed with only one gold chunk for a
@@ -229,43 +243,68 @@ have successful retrieval results.
 
 The script never generates answers. Verified unanswerable cases are marked for
 manual chatbot refusal review, since retrieval cannot establish refusal quality.
-Proposed negative cases concern live weather, live bus seats, an undocumented
+Reviewed negative cases concern live weather, live bus seats, an undocumented
 Wi-Fi password, a direct-train fare, and unresolved Monday Lake coordinates.
 Only the weather refusal has a live smoke observation so far.
 
 **Files and command.** `evaluate.py`, `evals/questions.json`, `evals/results.csv`,
-and `evals/summary.md`. Run `python evaluate.py`. The current run writes actual
-per-question review statuses and a summary without embedding requests, because
-there are no verified labels. The summary also shows all questions, reference
-answers, gold IDs/pages, and expandable evidence excerpts for review.
+and `evals/summary.md`. Run `python evaluate.py`. The completed run saved all
+20 answerable questions' actual top-ten IDs, page ranges, cosine distances,
+first-gold ranks, and per-question scores. Multi-fact rows also record required
+and missing evidence groups. The five unanswerable rows are marked
+`unanswerable_manual_review` with no retrieval scores. The summary retains the
+questions, reference answers, gold IDs/pages, and source excerpts.
+
+Two answerable query embeddings were already cached; 18 new question vectors
+were generated and cached. No document embeddings were regenerated, no database
+rebuild occurred, and no chat answers were generated. There were zero retrieval
+errors. Fingerprints of all 49 stored document vectors and `data/chunks.json`
+matched before and after the run. Aggregate metrics were also recomputed from
+the saved CSV without repeating API calls or retrieval.
 
 | Metric | Actual result |
 |---|---|
-| Verified answerable questions | 0 |
-| Hit@5 | Not calculated; pending label review |
-| MRR@10 | Not calculated; pending label review |
-| Failed retrieval questions | Not calculated |
+| Verified answerable questions | 20 |
+| Hit@5 | 1.0000, 20/20 |
+| MRR@10 | 0.9667 |
+| Verified multi-fact questions | 5 |
+| CompleteEvidence@5 | 1.0000, 5/5 |
+| Failed retrieval questions | 0 |
 
 Small in-memory checks passed for first-gold ranks 1, 5, 6, and 10, a missing
 gold chunk, and multiple gold IDs. They check the metric formulas, not retrieval
 accuracy. The review gate was also checked with API creation disabled: all 25
 drafts were skipped without a request. No testing framework or test files were added.
 
-**Next step and failure analysis.** The user must inspect/correct gold labels and
-set approved entries to `verified` before official evaluation. The dataset
-includes two earlier smoke questions and related facts, so it is not a held-out
-benchmark. No official baseline failures or accuracy scores exist yet. After
-verification, inspect misses and retrieved alternatives before proposing
-retrieval changes. No advanced strategy has been implemented.
+**Failure and ranking analysis.** No answerable question missed gold evidence
+in the top five. All five multi-fact questions represented every required group
+in their top five. Nineteen questions had a first-gold rank of one. q07, "How do
+you reach Ratti Gali Lake from its base camp, and how long is that final leg?",
+had gold `p064-065-eeaf0cd09563` at rank three, behind
+`p053-054-a26a1670d604` and `p072-074-249d8c96c2fc`. Those earlier results concern
+Nanga Parbat and Kandol/Spin Khwar rather than Ratti Gali. This is a ranking
+weakness despite passing Hit@5. MRR is therefore `(19 + 1/3) / 20`, or 0.9667.
+No missing evidence groups or retrieval API failures require fixes in this run.
+
+**Interpretation.** The dataset includes two earlier smoke questions and related
+facts, so it is not a held-out benchmark. Perfect Hit@5 and CompleteEvidence@5
+on this small reviewed set do not establish general retrieval accuracy, answer
+correctness, or refusal reliability. No chunking changes, reranker, hybrid
+search, or other retrieval tuning were introduced. If further work is needed,
+inspect q07 and evaluate additional unseen questions before choosing an improvement.
+The metric implementation rejects missing/invalid evidence groups rather than
+reporting a vacuous perfect score. Small in-memory checks covered alternatives,
+missing groups, the top-five cutoff, and shared supporting chunks.
 
 ## Stage 7: deployment
 
 **Pending.** No publication, Streamlit Community Cloud deployment, or live URL
 has been created. The local PDF, index, caches, and saved passages are ignored
-by Git. Draft evaluation evidence also contains source excerpts; no publication
+by Git. Reviewed evaluation evidence also contains source excerpts; no publication
 action has been authorized or performed for this milestone.
 
-After label review and baseline evaluation, approve which artifacts may be
-published, prepare the bundled fixed index, check that it opens on the deployment
+Label review and baseline retrieval evaluation are complete. Deployment remains
+pending. Next, approve which artifacts may be published, prepare the bundled
+fixed index, check that it opens on the deployment
 platform, configure the key through Streamlit secrets, and verify the live app.
 Cloud portability and live availability have not been tested.

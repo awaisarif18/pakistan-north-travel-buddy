@@ -11,7 +11,7 @@
       7
     ],
     "reference_answer": "Fill up completely in Sost before the round trip to Khunjerab; the guide reports no fuel along that stretch.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p006-008-4850ae1f4334",
@@ -35,7 +35,7 @@
       22
     ],
     "reference_answer": "June to September.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p020-022-8d8b2710273b",
@@ -61,7 +61,7 @@
       38
     ],
     "reference_answer": "Approximately PKR 4,630–5,500 depending on bus class.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p037-039-63413879f3c2",
@@ -75,10 +75,11 @@
         "pages": [
           11
         ],
-        "quote": "Operator | Route | Fare (PKR) | Notes\nNATCO | Islamabad → Gilgit | ~3,760 | Government- run, oldest operator on the KKH\nNATCO | Islamabad → Hunza | ~5,040 | \nNATCO | Islamabad → Skardu | ~4,630- 5,500 | Daily ~2pm departure\nFaisal Movers | Islamabad → Hunza | ~4,500- 5,000 | Gilgit terminal: 0311-1224488, near NATCO terminal, Shahr- e-Quaid-e-Azam\nFaisal Movers | Islamabad → Naran | ~2,800- 3,400 | ~7.5 hrs, Yutong executive mini\nFaisal Movers | Islamabad → Kaghan | ~3,400 | \nFaisal Movers | Lahore → Naran | ~4,000 | \nFaisal Movers | Multan → Naran | ~5,400 | "
+        "quote": "Operator | Route | Fare (PKR) | Notes\nNATCO | Islamabad → Gilgit | ~3,760 | Government- run, oldest operator on the KKH\nNATCO | Islamabad → Hunza | ~5,040 | \nNATCO | Islamabad → Skardu | ~4,630- 5,500 | Daily ~2pm departure\nFaisal Movers | Islamabad → Hunza | ~4,500- 5,000 | Gilgit terminal: 0311-1224488, near NATCO terminal, Shahr- e-Quaid-e-Azam\nFaisal Movers | Islamabad → Naran | ~2,800- 3,400 | ~7.5 hrs, Yutong executive mini\nFaisal Movers | Islamabad → Kaghan | ~3,400 | \nFaisal Movers | Lahore → Naran | ~4,000 | \nFaisal Movers | Multan → Naran | ~5,400 | ",
+        "quote_type": "normalized_table_text"
       }
     ],
-    "review_notes": ""
+    "review_notes": "The PDF page 11 transport table was normalized into pipe-separated text at ingestion; its facts match the PDF but this is not a verbatim prose quote. Pending user approval."
   },
   {
     "id": "q04",
@@ -86,13 +87,15 @@
     "category": "direct",
     "answerable": true,
     "gold_chunk_ids": [
-      "p039-040-154eaa1a99b3"
+      "p039-040-154eaa1a99b3",
+      "p008-010-a7bee3da530b"
     ],
     "gold_pages": [
+      10,
       40
     ],
     "reference_answer": "Roughly November through May.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p039-040-154eaa1a99b3",
@@ -100,9 +103,17 @@
           40
         ],
         "quote": "Wildlife/season: Himalayan brown bears, golden eagles, wildflowers May–July, golden landscape August–September. Nights are freezing even in summer — pack proper thermal gear regardless of the season. The park closes to vehicles roughly November–May due to snow."
+      },
+      {
+        "chunk_id": "p008-010-a7bee3da530b",
+        "pages": [
+          10
+        ],
+        "quote": "Deosai's road closes to vehicles roughly November-May",
+        "quote_type": "source_excerpt"
       }
     ],
-    "review_notes": ""
+    "review_notes": "Additional valid supporting evidence exists in the practical reference seasonal-closures section on PDF page 10. Gold IDs updated to include it. Pending user approval."
   },
   {
     "id": "q05",
@@ -116,7 +127,7 @@
       50
     ],
     "reference_answer": "At least 150cc; smaller motorcycles are turned away.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p049-051-51be39ff7ee4",
@@ -140,7 +151,7 @@
       57
     ],
     "reference_answer": "A local 4x4 jeep; using a personal bike or vehicle is not advisable on the final rocky section.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p057-058-1e3220f30d27",
@@ -164,7 +175,7 @@
       64
     ],
     "reference_answer": "Hike from base camp, approximately 40 minutes to two hours.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p064-065-eeaf0cd09563",
@@ -188,7 +199,7 @@
       72
     ],
     "reference_answer": "About three to four hours.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p072-074-249d8c96c2fc",
@@ -213,7 +224,7 @@
       82
     ],
     "reference_answer": "Bumburet, Rumbur, and Birir.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p081-083-d64cf441cb82",
@@ -244,7 +255,7 @@
       88
     ],
     "reference_answer": "At least 1.5 litres because the trail has no water source.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p087-088-8428f4e31885",
@@ -268,7 +279,7 @@
       7
     ],
     "reference_answer": "Fill up in Naran; there is no pump after Batakundi through Babusar to Chilas, roughly 90–100 km.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p006-008-4850ae1f4334",
@@ -292,7 +303,7 @@
       20
     ],
     "reference_answer": "Approximately PKR 1,500–3,500 per night for a simple room.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p020-022-8d8b2710273b",
@@ -316,7 +327,7 @@
       58
     ],
     "reference_answer": "Sassi village on the Gilgit–Skardu road.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p058-060-fa9822ff4f99",
@@ -340,7 +351,7 @@
       80
     ],
     "reference_answer": "Shorba.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p080-081-4717074613d0",
@@ -364,7 +375,7 @@
       89
     ],
     "reference_answer": "The guide describes a proper shelter and a nearby stream.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p088-090-7fe56cb01062",
@@ -391,7 +402,7 @@
       23
     ],
     "reference_answer": "Both are recommended June–September; Rakaposhi Base Camp is about 4,150 m, while Rush Lake is over 4,700 m.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p020-022-8d8b2710273b",
@@ -422,7 +433,15 @@
         "quote": "Season: June–September."
       }
     ],
-    "review_notes": ""
+    "review_notes": "For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
+    "required_evidence_groups": [
+      [
+        "p020-022-8d8b2710273b"
+      ],
+      [
+        "p022-024-9d656b3640ce"
+      ]
+    ]
   },
   {
     "id": "q17",
@@ -432,15 +451,17 @@
     "gold_chunk_ids": [
       "p037-039-63413879f3c2",
       "p010-014-0aced0690245",
-      "p039-040-154eaa1a99b3"
+      "p039-040-154eaa1a99b3",
+      "p008-010-a7bee3da530b"
     ],
     "gold_pages": [
+      10,
       11,
       38,
       40
     ],
     "reference_answer": "NATCO operates direct buses, around PKR 4,630–5,500; Deosai closes roughly November–May.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p037-039-63413879f3c2",
@@ -454,7 +475,8 @@
         "pages": [
           11
         ],
-        "quote": "Operator | Route | Fare (PKR) | Notes\nNATCO | Islamabad → Gilgit | ~3,760 | Government- run, oldest operator on the KKH\nNATCO | Islamabad → Hunza | ~5,040 | \nNATCO | Islamabad → Skardu | ~4,630- 5,500 | Daily ~2pm departure\nFaisal Movers | Islamabad → Hunza | ~4,500- 5,000 | Gilgit terminal: 0311-1224488, near NATCO terminal, Shahr- e-Quaid-e-Azam\nFaisal Movers | Islamabad → Naran | ~2,800- 3,400 | ~7.5 hrs, Yutong executive mini\nFaisal Movers | Islamabad → Kaghan | ~3,400 | \nFaisal Movers | Lahore → Naran | ~4,000 | \nFaisal Movers | Multan → Naran | ~5,400 | "
+        "quote": "Operator | Route | Fare (PKR) | Notes\nNATCO | Islamabad → Gilgit | ~3,760 | Government- run, oldest operator on the KKH\nNATCO | Islamabad → Hunza | ~5,040 | \nNATCO | Islamabad → Skardu | ~4,630- 5,500 | Daily ~2pm departure\nFaisal Movers | Islamabad → Hunza | ~4,500- 5,000 | Gilgit terminal: 0311-1224488, near NATCO terminal, Shahr- e-Quaid-e-Azam\nFaisal Movers | Islamabad → Naran | ~2,800- 3,400 | ~7.5 hrs, Yutong executive mini\nFaisal Movers | Islamabad → Kaghan | ~3,400 | \nFaisal Movers | Lahore → Naran | ~4,000 | \nFaisal Movers | Multan → Naran | ~5,400 | ",
+        "quote_type": "normalized_table_text"
       },
       {
         "chunk_id": "p039-040-154eaa1a99b3",
@@ -462,9 +484,27 @@
           40
         ],
         "quote": "Wildlife/season: Himalayan brown bears, golden eagles, wildflowers May–July, golden landscape August–September. Nights are freezing even in summer — pack proper thermal gear regardless of the season. The park closes to vehicles roughly November–May due to snow."
+      },
+      {
+        "chunk_id": "p008-010-a7bee3da530b",
+        "pages": [
+          10
+        ],
+        "quote": "Deosai's road closes to vehicles roughly November-May",
+        "quote_type": "source_excerpt"
       }
     ],
-    "review_notes": ""
+    "review_notes": "Additional valid supporting evidence exists in the practical reference seasonal-closures section on PDF page 10. Gold IDs updated to include it. Pending user approval. The PDF page 11 transport table was normalized into pipe-separated text at ingestion; its facts match the PDF but this is not a verbatim prose quote. Pending user approval. For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
+    "required_evidence_groups": [
+      [
+        "p037-039-63413879f3c2",
+        "p010-014-0aced0690245"
+      ],
+      [
+        "p039-040-154eaa1a99b3",
+        "p008-010-a7bee3da530b"
+      ]
+    ]
   },
   {
     "id": "q18",
@@ -480,7 +520,7 @@
       52
     ],
     "reference_answer": "A 125cc bike is below Minimarg’s 150cc threshold; use a 4x4 or a 150cc+ motorcycle. For Fairy Meadows, leave the bike at Raikot Bridge or Chilas and take the local jeep service, then hike.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p049-051-51be39ff7ee4",
@@ -504,7 +544,15 @@
         "quote": "This jeep track is genuinely not bike territory — narrow, one-lane, and normally driven only by experienced local jeep drivers; leave the bike at Raikot Bridge or Chilas and go in by the local jeep service."
       }
     ],
-    "review_notes": ""
+    "review_notes": "For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
+    "required_evidence_groups": [
+      [
+        "p049-051-51be39ff7ee4"
+      ],
+      [
+        "p051-053-ff8a6c292dbc"
+      ]
+    ]
   },
   {
     "id": "q19",
@@ -520,7 +568,7 @@
       72
     ],
     "reference_answer": "Naltar lakes require a separate 4x4 leg beyond Naltar Bala. Kandol involves a jeep to Utror, then a three-to-four-hour trek.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p057-058-1e3220f30d27",
@@ -537,7 +585,15 @@
         "quote": "Route: Kalam → Utror (jeep, ~1 hour) → cross a bridge → trek up the valley, 3-4 hours to Kandol Lake, with Spin Khwar (a smaller, less-visited lake) another 2-3 hours beyond/near Kandol — often done together as one long day or overnight."
       }
     ],
-    "review_notes": ""
+    "review_notes": "For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
+    "required_evidence_groups": [
+      [
+        "p057-058-1e3220f30d27"
+      ],
+      [
+        "p072-074-249d8c96c2fc"
+      ]
+    ]
   },
   {
     "id": "q20",
@@ -553,7 +609,7 @@
       89
     ],
     "reference_answer": "Miranjani has no trail water source, so carry at least 1.5 litres for a round trip; Dagri Bangla has a shelter and nearby stream for an overnight camp.",
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [
       {
         "chunk_id": "p087-088-8428f4e31885",
@@ -570,7 +626,15 @@
         "quote": "Camping: A proper shelter exists at Dagri Bangla with a nearby stream for water — genuinely set up for an overnight rather than requiring you to bring full camping infrastructure."
       }
     ],
-    "review_notes": ""
+    "review_notes": "For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
+    "required_evidence_groups": [
+      [
+        "p087-088-8428f4e31885"
+      ],
+      [
+        "p088-090-7fe56cb01062"
+      ]
+    ]
   },
   {
     "id": "q21",
@@ -580,7 +644,7 @@
     "gold_chunk_ids": [],
     "gold_pages": [],
     "reference_answer": null,
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [],
     "review_notes": "Expected to be unavailable in this static guide; confirm manually."
   },
@@ -592,7 +656,7 @@
     "gold_chunk_ids": [],
     "gold_pages": [],
     "reference_answer": null,
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [],
     "review_notes": "Expected to be unavailable in this static guide; confirm manually."
   },
@@ -604,7 +668,7 @@
     "gold_chunk_ids": [],
     "gold_pages": [],
     "reference_answer": null,
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [],
     "review_notes": "Expected to be unavailable in this static guide; confirm manually."
   },
@@ -616,7 +680,7 @@
     "gold_chunk_ids": [],
     "gold_pages": [],
     "reference_answer": null,
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [],
     "review_notes": "Expected to be unavailable in this static guide; confirm manually."
   },
@@ -628,7 +692,7 @@
     "gold_chunk_ids": [],
     "gold_pages": [],
     "reference_answer": null,
-    "verification_status": "needs_review",
+    "verification_status": "verified",
     "gold_evidence": [],
     "review_notes": "Expected to be unavailable in this static guide; confirm manually."
   }

@@ -4,12 +4,14 @@
 
 | Metric | Actual result |
 |---|---|
-| Verified answerable questions | 0 |
-| Hit@5 | Not calculated |
-| MRR@10 | Not calculated |
-| Failed retrieval questions | Not calculated |
+| Verified answerable questions | 20 |
+| Hit@5 | 1.0000 |
+| MRR@10 | 0.9667 |
+| Verified multi-fact questions | 5 |
+| CompleteEvidence@5 | 1.0000 |
+| Failed retrieval questions | 0 |
 
-Successfully retrieved verified questions: 0. Retrieval errors: 0.
+Successfully retrieved verified questions: 20. Retrieval errors: 0.
 Scores require verified labels and a successful retrieval for every verified answerable question.
 Draft labels are excluded. These results do not measure answer correctness.
 
@@ -18,18 +20,36 @@ Draft labels are excluded. These results do not measure answer correctness.
 Model: `gemini-embedding-2`, 3072 dimensions; cosine search, top 10.
 Hit@5 = questions with at least one gold chunk in ranks 1-5 / verified answerable questions.
 MRR@10 = mean of 1 / first gold rank in ranks 1-10, or zero when no gold chunk appears.
-Multi-fact questions use the first matching gold chunk. Neither metric proves all required facts were retrieved.
+CompleteEvidence@5 = fraction of verified multi-fact questions with at least one top-five chunk from EVERY required evidence group.
+IDs within a group are alternatives; all groups are required. One chunk may satisfy multiple groups when the reviewed labels allow it.
+Hit@5 and MRR@10 use the first matching gold chunk, so they do not establish complete evidence coverage.
+CSV retrieved IDs, pages, and distances are parallel lists ordered from rank 1 to rank 10.
 
 ## Failures and next steps
 
-No evaluated Hit@5 failures to list yet.
+No Hit@5 failures in the evaluated questions.
+
+### Gold evidence below rank one
+
+- q07: How do you reach Ratti Gali Lake from its base camp, and how long is that final leg? First gold rank: 3. Top three: `p053-054-a26a1670d604;p072-074-249d8c96c2fc;p064-065-eeaf0cd09563`.
+
+### Multi-fact evidence coverage
+
+| Question | CompleteEvidence@5 | Missing evidence groups |
+|---|---|---|
+| q16 | 1 | `[]` |
+| q17 | 1 | `[]` |
+| q18 | 1 | `[]` |
+| q19 | 1 | `[]` |
+| q20 | 1 | `[]` |
+
 Inspect missed evidence and question wording before changing retrieval. No reranker or hybrid search is implemented.
 If retrieval errors occur, rerun using cached query embeddings before interpreting the aggregate scores.
 
 ## Unanswerable questions
 
 Excluded from retrieval metrics. This script never calls Gemini answer generation.
-After label review, ask these questions in the chatbot and inspect refusals separately.
+Ask these questions in the chatbot and inspect refusals separately; label approval alone does not verify refusal behavior.
 
 - q21: What will the weather in Hunza be tomorrow?
 - q22: How many seats are available on the next NATCO bus from Islamabad to Skardu right now?
@@ -39,38 +59,36 @@ After label review, ask these questions in the chatbot and inspect refusals sepa
 
 ## Gold label review
 
-All labels start as `needs_review`. Check the questions, reference answers, exact evidence excerpts,
-and physical PDF pages below. Edit `evals/questions.json` to correct labels and set each approved
-question's `verification_status` to `verified`, then rerun `python evaluate.py`.
-Verifying only a subset evaluates only that subset. Review unanswerable labels too.
+Verification statuses below record label approval. Only verified answerable questions enter retrieval scores.
+The reference answers and supporting excerpts are retained for inspection. Future label changes require review before rescoring.
 
 | ID | Category | Question | Gold chunks | PDF pages | Reference answer | Status |
 |---|---|---|---|---|---|---|
-| q01 | direct | Where should I refuel before traveling to Khunjerab Pass? | p006-008-4850ae1f4334 | 7 | Fill up completely in Sost before the round trip to Khunjerab; the guide reports no fuel along that stretch. | needs_review |
-| q02 | direct | What is the best season for Rakaposhi Base Camp? | p020-022-8d8b2710273b | 22 | June to September. | needs_review |
-| q03 | direct | What fare range does the guide give for NATCO buses from Islamabad/Rawalpindi to Skardu? | p037-039-63413879f3c2, p010-014-0aced0690245 | 11, 38 | Approximately PKR 4,630–5,500 depending on bus class. | needs_review |
-| q04 | direct | During which months does Deosai close to vehicles because of snow? | p039-040-154eaa1a99b3 | 40 | Roughly November through May. | needs_review |
-| q05 | direct | What is the minimum motorcycle engine size allowed into Minimarg according to the guide? | p049-051-51be39ff7ee4 | 50 | At least 150cc; smaller motorcycles are turned away. | needs_review |
-| q06 | direct | What vehicle does the guide recommend for the final section to the Naltar lakes? | p057-058-1e3220f30d27 | 57 | A local 4x4 jeep; using a personal bike or vehicle is not advisable on the final rocky section. | needs_review |
-| q07 | direct | How do you reach Ratti Gali Lake from its base camp, and how long is that final leg? | p064-065-eeaf0cd09563 | 64 | Hike from base camp, approximately 40 minutes to two hours. | needs_review |
-| q08 | direct | How long is the trek to Kandol Lake after the jeep journey to Utror? | p072-074-249d8c96c2fc | 72 | About three to four hours. | needs_review |
-| q09 | direct | Which three valleys make up the Kalash Valleys group in this guide? | p081-083-d64cf441cb82 | 81, 82 | Bumburet, Rumbur, and Birir. | needs_review |
-| q10 | direct | How much water should I carry for the Miranjani round trip? | p087-088-8428f4e31885 | 88 | At least 1.5 litres because the trail has no water source. | needs_review |
-| q11 | paraphrased | I am riding over Babusar toward Chilas. Where should I top up, and how long is the stretch without a petrol pump? | p006-008-4850ae1f4334 | 7 | Fill up in Naran; there is no pump after Batakundi through Babusar to Chilas, roughly 90–100 km. | needs_review |
-| q12 | paraphrased | What nightly budget does the guide suggest for a basic guesthouse in Hunza? | p020-022-8d8b2710273b | 20 | Approximately PKR 1,500–3,500 per night for a simple room. | needs_review |
-| q13 | paraphrased | Which village is the road gateway for approaching Kutwal Lake from Gilgit? | p058-060-fa9822ff4f99 | 58 | Sassi village on the Gilgit–Skardu road. | needs_review |
-| q14 | paraphrased | What is the Chitrali broth made by slowly cooking lamb or goat bones called? | p080-081-4717074613d0 | 80 | Shorba. | needs_review |
-| q15 | paraphrased | Is there somewhere to shelter and get water when camping at Dagri Bangla? | p088-090-7fe56cb01062 | 89 | The guide describes a proper shelter and a nearby stream. | needs_review |
-| q16 | multi_fact | Compare the seasons and elevations of Rakaposhi Base Camp and Rush Lake. | p020-022-8d8b2710273b, p022-024-9d656b3640ce | 21, 22, 23 | Both are recommended June–September; Rakaposhi Base Camp is about 4,150 m, while Rush Lake is over 4,700 m. | needs_review |
-| q17 | multi_fact | How can I reach Skardu from Islamabad by public bus, and when does Deosai close to vehicles? | p037-039-63413879f3c2, p010-014-0aced0690245, p039-040-154eaa1a99b3 | 11, 38, 40 | NATCO operates direct buses, around PKR 4,630–5,500; Deosai closes roughly November–May. | needs_review |
-| q18 | multi_fact | Can I use a 125cc bike for Minimarg and the jeep track to Fairy Meadows, and what alternatives does the guide suggest? | p049-051-51be39ff7ee4, p051-053-ff8a6c292dbc | 50, 52 | A 125cc bike is below Minimarg’s 150cc threshold; use a 4x4 or a 150cc+ motorcycle. For Fairy Meadows, leave the bike at Raikot Bridge or Chilas and take the local jeep service, then hike. | needs_review |
-| q19 | multi_fact | Compare the final access to the Naltar lakes with the approach to Kandol Lake from Kalam. | p057-058-1e3220f30d27, p072-074-249d8c96c2fc | 57, 72 | Naltar lakes require a separate 4x4 leg beyond Naltar Bala. Kandol involves a jeep to Utror, then a three-to-four-hour trek. | needs_review |
-| q20 | multi_fact | What water and overnight arrangements does the guide describe for Miranjani and Dagri Bangla? | p087-088-8428f4e31885, p088-090-7fe56cb01062 | 88, 89 | Miranjani has no trail water source, so carry at least 1.5 litres for a round trip; Dagri Bangla has a shelter and nearby stream for an overnight camp. | needs_review |
-| q21 | unanswerable | What will the weather in Hunza be tomorrow? | None | None | Not available in the PDF | needs_review |
-| q22 | unanswerable | How many seats are available on the next NATCO bus from Islamabad to Skardu right now? | None | None | Not available in the PDF | needs_review |
-| q23 | unanswerable | What is the guest Wi-Fi password at Serena Shigar Fort? | None | None | Not available in the PDF | needs_review |
-| q24 | unanswerable | What is the fare for a direct train from Islamabad to Skardu? | None | None | Not available in the PDF | needs_review |
-| q25 | unanswerable | What are the exact GPS coordinates of Monday Lake? | None | None | Not available in the PDF | needs_review |
+| q01 | direct | Where should I refuel before traveling to Khunjerab Pass? | p006-008-4850ae1f4334 | 7 | Fill up completely in Sost before the round trip to Khunjerab; the guide reports no fuel along that stretch. | verified |
+| q02 | direct | What is the best season for Rakaposhi Base Camp? | p020-022-8d8b2710273b | 22 | June to September. | verified |
+| q03 | direct | What fare range does the guide give for NATCO buses from Islamabad/Rawalpindi to Skardu? | p037-039-63413879f3c2, p010-014-0aced0690245 | 11, 38 | Approximately PKR 4,630–5,500 depending on bus class. | verified |
+| q04 | direct | During which months does Deosai close to vehicles because of snow? | p039-040-154eaa1a99b3, p008-010-a7bee3da530b | 10, 40 | Roughly November through May. | verified |
+| q05 | direct | What is the minimum motorcycle engine size allowed into Minimarg according to the guide? | p049-051-51be39ff7ee4 | 50 | At least 150cc; smaller motorcycles are turned away. | verified |
+| q06 | direct | What vehicle does the guide recommend for the final section to the Naltar lakes? | p057-058-1e3220f30d27 | 57 | A local 4x4 jeep; using a personal bike or vehicle is not advisable on the final rocky section. | verified |
+| q07 | direct | How do you reach Ratti Gali Lake from its base camp, and how long is that final leg? | p064-065-eeaf0cd09563 | 64 | Hike from base camp, approximately 40 minutes to two hours. | verified |
+| q08 | direct | How long is the trek to Kandol Lake after the jeep journey to Utror? | p072-074-249d8c96c2fc | 72 | About three to four hours. | verified |
+| q09 | direct | Which three valleys make up the Kalash Valleys group in this guide? | p081-083-d64cf441cb82 | 81, 82 | Bumburet, Rumbur, and Birir. | verified |
+| q10 | direct | How much water should I carry for the Miranjani round trip? | p087-088-8428f4e31885 | 88 | At least 1.5 litres because the trail has no water source. | verified |
+| q11 | paraphrased | I am riding over Babusar toward Chilas. Where should I top up, and how long is the stretch without a petrol pump? | p006-008-4850ae1f4334 | 7 | Fill up in Naran; there is no pump after Batakundi through Babusar to Chilas, roughly 90–100 km. | verified |
+| q12 | paraphrased | What nightly budget does the guide suggest for a basic guesthouse in Hunza? | p020-022-8d8b2710273b | 20 | Approximately PKR 1,500–3,500 per night for a simple room. | verified |
+| q13 | paraphrased | Which village is the road gateway for approaching Kutwal Lake from Gilgit? | p058-060-fa9822ff4f99 | 58 | Sassi village on the Gilgit–Skardu road. | verified |
+| q14 | paraphrased | What is the Chitrali broth made by slowly cooking lamb or goat bones called? | p080-081-4717074613d0 | 80 | Shorba. | verified |
+| q15 | paraphrased | Is there somewhere to shelter and get water when camping at Dagri Bangla? | p088-090-7fe56cb01062 | 89 | The guide describes a proper shelter and a nearby stream. | verified |
+| q16 | multi_fact | Compare the seasons and elevations of Rakaposhi Base Camp and Rush Lake. | p020-022-8d8b2710273b, p022-024-9d656b3640ce | 21, 22, 23 | Both are recommended June–September; Rakaposhi Base Camp is about 4,150 m, while Rush Lake is over 4,700 m. | verified |
+| q17 | multi_fact | How can I reach Skardu from Islamabad by public bus, and when does Deosai close to vehicles? | p037-039-63413879f3c2, p010-014-0aced0690245, p039-040-154eaa1a99b3, p008-010-a7bee3da530b | 10, 11, 38, 40 | NATCO operates direct buses, around PKR 4,630–5,500; Deosai closes roughly November–May. | verified |
+| q18 | multi_fact | Can I use a 125cc bike for Minimarg and the jeep track to Fairy Meadows, and what alternatives does the guide suggest? | p049-051-51be39ff7ee4, p051-053-ff8a6c292dbc | 50, 52 | A 125cc bike is below Minimarg’s 150cc threshold; use a 4x4 or a 150cc+ motorcycle. For Fairy Meadows, leave the bike at Raikot Bridge or Chilas and take the local jeep service, then hike. | verified |
+| q19 | multi_fact | Compare the final access to the Naltar lakes with the approach to Kandol Lake from Kalam. | p057-058-1e3220f30d27, p072-074-249d8c96c2fc | 57, 72 | Naltar lakes require a separate 4x4 leg beyond Naltar Bala. Kandol involves a jeep to Utror, then a three-to-four-hour trek. | verified |
+| q20 | multi_fact | What water and overnight arrangements does the guide describe for Miranjani and Dagri Bangla? | p087-088-8428f4e31885, p088-090-7fe56cb01062 | 88, 89 | Miranjani has no trail water source, so carry at least 1.5 litres for a round trip; Dagri Bangla has a shelter and nearby stream for an overnight camp. | verified |
+| q21 | unanswerable | What will the weather in Hunza be tomorrow? | None | None | Not available in the PDF | verified |
+| q22 | unanswerable | How many seats are available on the next NATCO bus from Islamabad to Skardu right now? | None | None | Not available in the PDF | verified |
+| q23 | unanswerable | What is the guest Wi-Fi password at Serena Shigar Fort? | None | None | Not available in the PDF | verified |
+| q24 | unanswerable | What is the fare for a direct train from Islamabad to Skardu? | None | None | Not available in the PDF | verified |
+| q25 | unanswerable | What are the exact GPS coordinates of Monday Lake? | None | None | Not available in the PDF | verified |
 
 ### Supporting excerpts for manual verification
 
@@ -115,6 +133,10 @@ Verifying only a subset evaluates only that subset. Review unanswerable labels t
 `p039-040-154eaa1a99b3`, physical PDF pages [40].
 
 > Wildlife/season: Himalayan brown bears, golden eagles, wildflowers May–July, golden landscape August–September. Nights are freezing even in summer — pack proper thermal gear regardless of the season. The park closes to vehicles roughly November–May due to snow.
+
+`p008-010-a7bee3da530b`, physical PDF pages [10].
+
+> Deosai's road closes to vehicles roughly November-May
 
 </details>
 
@@ -212,6 +234,8 @@ Verifying only a subset evaluates only that subset. Review unanswerable labels t
 
 <details><summary>q16: Compare the seasons and elevations of Rakaposhi Base Camp and Rush Lake.</summary>
 
+Required evidence groups: `[["p020-022-8d8b2710273b"], ["p022-024-9d656b3640ce"]]`.
+
 `p020-022-8d8b2710273b`, physical PDF pages [21].
 
 > Distance/elevation: About 26 km round trip with roughly 1,500m of elevation gain/loss if done as a rushed single day — not recommended. Base camp itself sits around 4,150m, reached via a
@@ -231,6 +255,8 @@ Verifying only a subset evaluates only that subset. Review unanswerable labels t
 </details>
 
 <details><summary>q17: How can I reach Skardu from Islamabad by public bus, and when does Deosai close to vehicles?</summary>
+
+Required evidence groups: `[["p037-039-63413879f3c2", "p010-014-0aced0690245"], ["p039-040-154eaa1a99b3", "p008-010-a7bee3da530b"]]`.
 
 `p037-039-63413879f3c2`, physical PDF pages [38].
 
@@ -252,9 +278,15 @@ Verifying only a subset evaluates only that subset. Review unanswerable labels t
 
 > Wildlife/season: Himalayan brown bears, golden eagles, wildflowers May–July, golden landscape August–September. Nights are freezing even in summer — pack proper thermal gear regardless of the season. The park closes to vehicles roughly November–May due to snow.
 
+`p008-010-a7bee3da530b`, physical PDF pages [10].
+
+> Deosai's road closes to vehicles roughly November-May
+
 </details>
 
 <details><summary>q18: Can I use a 125cc bike for Minimarg and the jeep track to Fairy Meadows, and what alternatives does the guide suggest?</summary>
+
+Required evidence groups: `[["p049-051-51be39ff7ee4"], ["p051-053-ff8a6c292dbc"]]`.
 
 `p049-051-51be39ff7ee4`, physical PDF pages [50].
 
@@ -272,6 +304,8 @@ Verifying only a subset evaluates only that subset. Review unanswerable labels t
 
 <details><summary>q19: Compare the final access to the Naltar lakes with the approach to Kandol Lake from Kalam.</summary>
 
+Required evidence groups: `[["p057-058-1e3220f30d27"], ["p072-074-249d8c96c2fc"]]`.
+
 `p057-058-1e3220f30d27`, physical PDF pages [57].
 
 > Route: Gilgit → Nomal village (turn off the KKH) → Naltar Bala (Upper Naltar), about 34-40km, 1.5-2 hours. The road to Naltar Bala itself is manageable; the lakes beyond require a separate 4x4 jeep leg — old Willys jeeps with reinforced suspension are the standard local vehicle for this stretch, and taking your own vehicle (bike included) isn't advisable for the final rocky, boulder-strewn section.
@@ -283,6 +317,8 @@ Verifying only a subset evaluates only that subset. Review unanswerable labels t
 </details>
 
 <details><summary>q20: What water and overnight arrangements does the guide describe for Miranjani and Dagri Bangla?</summary>
+
+Required evidence groups: `[["p087-088-8428f4e31885"], ["p088-090-7fe56cb01062"]]`.
 
 `p087-088-8428f4e31885`, physical PDF pages [88].
 

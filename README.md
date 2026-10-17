@@ -97,11 +97,13 @@ were checked. These are smoke checks, not a generation accuracy benchmark.
 
 ## Retrieval evaluations
 
-The [draft dataset](evals/questions.json) has 25 questions: 10 direct,
-5 paraphrased, 5 multi-fact, and 5 unanswerable. Every label is `needs_review`.
-Review the questions, reference answers, chunk IDs, PDF pages, and excerpts in
-the [evaluation summary](evals/summary.md). Correct labels in the JSON, then
-mark each approved question `verified`.
+The [reviewed dataset](evals/questions.json) has 25 questions: 10 direct,
+5 paraphrased, 5 multi-fact, and 5 unanswerable. All labels are `verified` after
+an independent source-consistency review and user approval. The corrected file
+includes additional valid Deosai evidence for q04/q17 and required evidence
+groups for q16-q20. All gold IDs were checked against the 49 existing chunks.
+Questions, reference answers, gold evidence, and rankings are available in
+the [evaluation summary](evals/summary.md).
 
 ```powershell
 python evaluate.py
@@ -114,15 +116,26 @@ manual refusal review. With no verified labels, it makes no embedding requests.
 
 | Metric | Current actual result |
 |---|---|
-| Verified answerable questions | 0 |
-| Hit@5 | Not calculated; pending label review |
-| MRR@10 | Not calculated; pending label review |
-| Failed retrieval questions | Not calculated |
+| Verified answerable questions | 20 |
+| Hit@5 | 1.0000, 20/20 |
+| MRR@10 | 0.9667 |
+| CompleteEvidence@5 | 1.0000, 5/5 multi-fact questions |
+| Failed retrieval questions | 0 |
+
+All 20 answerable questions completed without retrieval errors. Nineteen had
+gold evidence at rank one; q07, about the hike from Ratti Gali base camp, had its
+gold chunk at rank three. There were no Hit@5 misses or incomplete multi-fact
+evidence groups. Five unanswerable questions are excluded from these metrics.
+These scores measure retrieval on this reviewed set, not chatbot answer accuracy.
 
 Hit@5 checks whether any gold chunk appears in the first five results. MRR@10
 averages the reciprocal rank of the first gold chunk in the first ten, with zero
 for a miss. For multi-fact questions, neither metric proves that every necessary
-chunk was retrieved. The five earlier smoke queries are not formal scores.
+chunk was retrieved. CompleteEvidence@5 checks the five multi-fact questions:
+at least one top-five chunk must appear in every `required_evidence_groups`
+group. IDs within each group are alternatives; every group is required. The
+CSV records missing groups as well as rank-ordered IDs, pages, and distances.
+The five earlier smoke queries are not formal scores.
 
 ## Limitations and deployment status
 
@@ -132,8 +145,8 @@ chunk was retrieved. The five earlier smoke queries are not formal scores.
   identify the retrieved range rather than an exact sentence location.
 - Lower-ranked passages can be irrelevant. Valid source IDs alone do not prove
   that every generated claim is supported.
-- The small draft dataset is not a held-out benchmark. Refusal behavior has
-  limited smoke coverage; all proposed unanswerable labels still need review.
+- The small reviewed dataset is not a held-out benchmark. Refusal behavior has
+  limited smoke coverage; approval of unanswerable labels does not verify refusals.
 - Local query caching and session chat are intended for a demo, not concurrent
   production use. Generation requires Gemini API access.
 
