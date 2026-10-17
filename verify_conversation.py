@@ -58,7 +58,7 @@ def fixtures():
 @traceable(name="conversation-memory-controlled-seven-scenarios")
 def controlled_checks(trace=False):
     retriever, chat, queries, rewrites, generations = fixtures()
-    graph = build_workflow(retriever, chat, checkpointer=InMemorySaver())
+    graph = build_workflow(retriever, chat, chat, checkpointer=InMemorySaver())
     thread = str(uuid4())
     records, results = [], []
     root = get_current_run_tree()
@@ -89,7 +89,7 @@ def controlled_checks(trace=False):
     assert len(rewrites[-1]["recent_exchanges"]) == 4
     results.append({"scenario": "Switching destinations", "status": "pass"})
 
-    fresh = build_workflow(retriever, chat, checkpointer=InMemorySaver())
+    fresh = build_workflow(retriever, chat, chat, checkpointer=InMemorySaver())
     fresh_id = str(uuid4())
     assert fresh.checkpointer is not graph.checkpointer
     assert not fresh.get_state({"configurable": {"thread_id": fresh_id}}).values
@@ -133,7 +133,7 @@ def controlled_checks(trace=False):
             return {"answerable": True, "paragraphs": [{"text": "Private fixture.", "sources": ["S1"]}]}
         private_chat = Mock()
         private_chat.with_structured_output.return_value = RunnableLambda(private_generate)
-        private = build_workflow(RunnableLambda(private_retrieve), private_chat, checkpointer=InMemorySaver())
+        private = build_workflow(RunnableLambda(private_retrieve), private_chat, private_chat, checkpointer=InMemorySaver())
         with patch("langsmith.run_trees.RunTree.post") as upload:
             run_question(private, "Privacy fixture", thread_id=str(uuid4()), trace=False)
             upload.assert_not_called()
@@ -146,9 +146,13 @@ def controlled_checks(trace=False):
 
 def check_streamlit():
     from streamlit.testing.v1 import AppTest
+    from usage_limits import Policy
 
     retriever, chat, queries, _, _ = fixtures()
-    with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat):
+    policy = Policy(cooldown_seconds=0, workflows_per_minute=100, generation_calls_per_minute=100,
+                    embedding_calls_per_minute=100)  # Test-only capacity; not provider quotas.
+    with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
+            patch("usage_limits.Policy.from_env", return_value=policy):
         app = AppTest.from_file(str(rag.ROOT / "app.py"), default_timeout=20).run()
         assert not app.exception
         initial_id, graph = app.session_state.conversation

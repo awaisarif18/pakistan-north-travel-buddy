@@ -1,0 +1,59 @@
+{
+  "dense": {
+    "hit_at1": 0.9375,
+    "hit_at5": 1,
+    "mrr_at10": 0.96875,
+    "complete_evidence_at5": 0.967741935483871,
+    "multi_passage_coverage_at5": 0.9705882352941176,
+    "multi_passage_complete_at5": 0.9411764705882353,
+    "median_latency_ms": 58.65495000034571,
+    "mean_latency_ms": 60.659590000204844,
+    "errors": 0,
+    "denominators": {
+      "hit_at1": 32,
+      "hit_at5": 32,
+      "mrr_at10": 32,
+      "complete_evidence_at5": 31,
+      "multi_passage_coverage_at5": 17,
+      "multi_passage_complete_at5": 17
+    }
+  },
+  "bm25": {
+    "hit_at1": 0.875,
+    "hit_at5": 1,
+    "mrr_at10": 0.9322916666666666,
+    "complete_evidence_at5": 0.9354838709677419,
+    "multi_passage_coverage_at5": 0.9411764705882353,
+    "multi_passage_complete_at5": 0.8823529411764706,
+    "median_latency_ms": 0.8390499988308875,
+    "mean_latency_ms": 0.8724949999304954,
+    "errors": 0,
+    "denominators": {
+      "hit_at1": 32,
+      "hit_at5": 32,
+      "mrr_at10": 32,
+      "complete_evidence_at5": 31,
+      "multi_passage_coverage_at5": 17,
+      "multi_passage_complete_at5": 17
+    }
+  },
+  "hybrid": {
+    "hit_at1": 0.9375,
+    "hit_at5": 1,
+    "mrr_at10": 0.9635416666666666,
+    "complete_evidence_at5": 0.967741935483871,
+    "multi_passage_coverage_at5": 0.9705882352941176,
+    "multi_passage_complete_at5": 0.9411764705882353,
+    "median_latency_ms": 58.478500000092026,
+    "mean_latency_ms": 60.30491750002511,
+    "errors": 0,
+    "denominators": {
+      "hit_at1": 32,
+      "hit_at5": 32,
+      "mrr_at10": 32,
+      "complete_evidence_at5": 31,
+      "multi_passage_coverage_at5": 17,
+      "multi_passage_complete_at5": 17
+    }
+  }
+}

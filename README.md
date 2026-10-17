@@ -28,7 +28,7 @@ remain on the stable v1.0 implementation. This migration has not been deployed.
 
 - Processes the 92-page guide with PyMuPDF into 49 text chunks with physical PDF page metadata.
 - Uses Gemini Embedding 2 at 3,072 dimensions and persistent ChromaDB cosine search to retrieve the top five passages.
-- Generates concise answers with Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
+- Generates concise answers with Gemini 3.5 Flash Lite on v1.1. The deployed v1.0 still uses Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
 - Exposes retrieved passages in expandable source cards and refuses questions unsupported by the supplied evidence.
 - Provides a responsive Streamlit chat interface with six example prompts, conversation display, and a reset option.
 - Caches query embeddings to avoid repeat embedding calls for identical questions and configuration.
@@ -77,8 +77,8 @@ checks citation references, not the truth of every generated statement.
 Retrieval uses LangChain `Document` objects and a similarity retriever over the
 existing Chroma collection. The embedding adapter delegates to v1.0's exact
 query-prefix, dimension, cache-key, and cache-write implementation in `rag.py`.
-It blocks document embedding. The original `rag.py`, ingestion, and evaluator
-remain intact as the migration reference. There are no agents, tools, or loops.
+It blocks document embedding. The original retrieval, ingestion, and evaluator remain the migration reference;
+only the default text-generation model in `rag.py` now uses Flash Lite. There are no agents, tools, or loops.
 Each Streamlit session owns an `InMemorySaver`, graph, and random thread ID.
 Completed graph turns are the sole chat-history source. Reruns read state;
 they do not replay prior questions. New conversation replaces the graph and
@@ -98,6 +98,41 @@ See the [conversation review](evals/conversation_review.md) for seven scenario
 results, live Gemini spot checks, citation checks, and limitations. This does
 not run the approved held-out benchmark or change historical retrieval scores.
 
+### Dense, keyword, and hybrid modes
+
+The v1.1 graph accepts any of three LangChain retrievers. Dense retains the
+original Chroma/Gemini path. BM25 builds an in-memory keyword index directly
+from Chroma's stored passages, so it needs neither the PDF nor `chunks.json`.
+Hybrid fuses the top 20 dense and BM25 candidates using equal-weight Reciprocal
+Rank Fusion, `score(id) = sum(1 / (60 + rank))`, deduplicated by existing chunk
+ID. BM25 uses `rank-bm25==0.2.2`, standard parameters, case-folded alphanumeric
+tokens, no stemming or stopword removal, and excludes nonpositive matches.
+Fusion ties are broken by chunk ID. Neither method changes source metadata.
+
+Set `RETRIEVAL_MODE=dense`, `bm25`, or `hybrid` in `.env` or Streamlit Secrets
+to select the app mode before startup. Dense remains the default, selected on
+development results before freezing the held-out comparison. No neural
+reranker or separate database is used. The graph and citation validation are
+shared across all three modes; the existing UI is preserved.
+
+The [hybrid benchmark report](evals/experiments/hybrid-v11-20261017/summary.md)
+contains measured scores, latency, experiment links, paired regressions, and
+the frozen settings. Its new exports preserve all historical evaluation files.
+
+| Held-out method | Hit@1 | Hit@5 | MRR@10 | CompleteEvidence@5 | Multi-passage complete@5 |
+|---|---:|---:|---:|---:|---:|
+| Dense | 0.9375 | 1.0000 | 0.9688 | 0.9677 | 0.9412, 16/17 |
+| BM25 | 0.8750 | 1.0000 | 0.9323 | 0.9355 | 0.8824, 15/17 |
+| Hybrid RRF | 0.9375 | 1.0000 | 0.9635 | 0.9677 | 0.9412, 16/17 |
+
+Hit/MRR use 32 answerable cases; CompleteEvidence uses 31 with required groups.
+Mean group coverage on the 17 two-group cases was 0.9706 for dense/hybrid
+and 0.9412 for BM25. Warm-cache median retrieval latency was 58.655 ms,
+0.839 ms, and 58.479 ms respectively, from one local sample per query/method.
+All methods tied on development accuracy; dense was selected and settings
+frozen before the one final held-out comparison. No post-test tuning occurred.
+The small single-PDF set cannot establish a confident configuration winner.
+
 ## Technology stack
 
 | Component | Technology |
@@ -106,7 +141,7 @@ not run the approved held-out benchmark or change historical retrieval scores.
 | PDF extraction | PyMuPDF 1.28.2 |
 | Embeddings | `gemini-embedding-2`, 3,072 dimensions |
 | Vector storage | ChromaDB 1.5.9, persistent cosine index |
-| Answer generation | `gemini-3.8-flash` |
+| Text generation on v1.1 | `gemini-3.5-flash-lite`, shared by rewriting and answers |
 | Gemini client | Official `google-genai` SDK 2.20.0 on this branch; v1.0 retains 1.75.0 |
 | LangChain interfaces | langchain-core 1.6.12 |
 | Gemini integration | langchain-google-genai 4.4.2 |
@@ -227,8 +262,9 @@ The private LangSmith datasets `north-tours-v1-1-dev` and
 inputs, reference outputs, metadata, and split membership match the approved
 local dataset. Gold chunk IDs are disjoint between splits,
 but all questions still use the same PDF and share topics with the old benchmark.
-Neither import nor evaluation accepts unverified labels. No harder-set scores
-or answer-quality scores have been generated.
+Neither import nor evaluation accepts unverified labels. The retrieval-only
+comparison is recorded in the hybrid benchmark report above. No new
+answer-quality scores have been generated for these 50 questions.
 
 The benchmark is intentionally multi-fact-heavy: 38/40 answerable questions are
 `multi_fact`. Of those, 21 have one required evidence group and 17 have two.
@@ -293,6 +329,100 @@ privacy checks, and limitations.
 
 ## Local installation and usage
 
+### Flash Lite generation and anonymous usage safeguards on v1.1
+
+The public v1.0 deployment is unchanged. This branch uses
+`gemini-3.5-flash-lite` as its only configured text-generation model, through
+`GEMINI_CHAT_MODEL`. Rewriting and final answers use that same model and one
+shared generation-call budget. Future trip planning must use this configuration
+and the same generation bucket; no planner is implemented yet. Gemini
+Embedding 2 and the existing 49 document vectors remain unchanged.
+
+The user verified these Free Tier project limits. Application defaults leave
+headroom and count invocation attempts, including failures, rather than messages:
+
+| Model / role | Provider RPM / input TPM / RPD | App calls/minute / Pacific day | App estimated input tokens/minute |
+|---|---|---|---|
+| `gemini-3.5-flash-lite`, all text generation | 15 / 250,000 / 500 | 10 / 300 shared | 150,000 |
+| `gemini-embedding-2`, cache misses | 100 / 30,000 / 1,000 | 30 / 300 separate | 20,000 |
+
+Each browser session gets 3 chat requests and 1 future trip plan per rolling
+60 minutes, with a 12-second cooldown and 700-character input limit. Reruns do
+not double-charge. New conversation preserves usage. A cached singleton allows
+2 concurrent workflows and 3 workflow starts per rolling minute. The workflow
+ceiling is separate from the actual generation-call budget. Admission reserves
+one generation call for a standalone answer, two when conditional rewriting is
+needed, and at most one embedding miss. Unused reservations are released;
+actual attempts remain counted. Denied admissions run no graph or Gemini calls.
+
+Daily counters use `America/Los_Angeles`, including DST. Minute/session windows
+use monotonic time. A reservation survives midnight; each invocation is charged
+to the day it starts. Conservative UTF-8 payload byte estimates plus fixed
+prompt/schema headroom bound local input-token use without a countTokens API
+call. These estimates are not exact provider token measurements. SDK calls make
+one attempt; provider 429s return a friendly message with a 60-second process
+backoff, without promising when Google will restore quota.
+
+Configure `.env`, or top-level Streamlit Secrets for a future deployment, and
+restart the process. `.env.example` contains the current names and defaults:
+
+| Variable | Default |
+|---|---|
+| `GEMINI_CHAT_MODEL` | `gemini-3.5-flash-lite`, all text generation |
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-2`, unchanged |
+| `CHAT_REQUESTS_PER_WINDOW` / `TRIP_REQUESTS_PER_WINDOW` | 3 / 1 |
+| `USAGE_WINDOW_SECONDS` / `SUBMISSION_COOLDOWN_SECONDS` | 3600 / 12 |
+| `MAX_QUESTION_CHARS` / `MAX_CONCURRENT_WORKFLOWS` | 700 / 2 |
+| `WORKFLOWS_PER_MINUTE` | 3 |
+| `GENERATION_API_CALLS_PER_MINUTE` / `GENERATION_API_CALLS_PER_DAY` | 10 / 300 |
+| `GENERATION_INPUT_TOKENS_PER_MINUTE` | 150000 |
+| `EMBEDDING_API_CALLS_PER_MINUTE` / `EMBEDDING_API_CALLS_PER_DAY` | 30 / 300 |
+| `EMBEDDING_INPUT_TOKENS_PER_MINUTE` | 20000 |
+| `PROVIDER_BACKOFF_SECONDS` | 60 |
+
+For existing local installations, change `GEMINI_CHAT_MODEL` in `.env` to
+`gemini-3.5-flash-lite`. The separate `GEMINI_REWRITE_MODEL`, `CHAT_API_*`,
+`REWRITE_API_*`, and their old input-token variables are retired. Remove those
+old settings and use the unified `GENERATION_*` variables above. There is no
+separate planner model setting or automatic fallback to Gemini 3.8 Flash.
+The workspace `.env` has been updated without changing credentials.
+
+Dense/hybrid standalone chat makes at most one generation and one uncached
+query-embedding call. A follow-up adds one generation for rewriting, so it
+consumes up to two calls from the same Flash Lite bucket. Cache hits remove
+the embedding call; BM25 needs none. Empty evidence skips answer generation.
+The last four exchanges provide bounded rewrite context, while final answers
+still use retrieved PDF evidence and validated source IDs. Future `trip_plan`
+admission must declare a bounded `generation` and `embedding` call budget.
+
+The [Flash Lite smoke review](evals/answer_quality_flash_lite.md) records three
+real answers using the same saved evidence as the earlier 3.8 review. Both
+supported answers passed source/citation checks; the live-weather request was
+refused. Fuel advice was shorter, with optional details omitted; the multi-fact
+answer retained the same substantive facts. This small sample does not prove
+model equivalence. Historical evaluation files and scores are unchanged.
+
+Run the focused mocked usage and conversation checks:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_usage.py
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+```
+
+Anonymous limits can be bypassed by browser reload or a new session. All
+process counters reset on restart and are independent across processes,
+replicas, other apps, and developer CLI tools. They cannot guarantee
+project-wide RPM, TPM, or RPD enforcement. No IP addresses or fingerprints are
+collected. Keep production tracing disabled. Stronger enforcement later needs
+trusted account IDs, durable shared atomic counters, and measured planner
+budgets. Authentication and durable storage are not implemented.
+
+Review actual usage in [Google AI Studio](https://aistudio.google.com/rate-limit).
+The [rate-limit guide](https://ai.google.dev/gemini-api/docs/rate-limits)
+explains model-specific project limits and Pacific daily resets.
+[Flash Lite documentation](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
+describes its native structured output support.
+
 For this existing workspace, run v1.1 in its separate environment:
 
 ```powershell
@@ -348,7 +478,7 @@ Configure `.env` privately:
 
 ```dotenv
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_CHAT_MODEL=gemini-3.8-flash
+GEMINI_CHAT_MODEL=gemini-3.5-flash-lite
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
@@ -417,7 +547,7 @@ Configure the following root-level keys privately in Streamlit Cloud Secrets:
 
 ```toml
 GEMINI_API_KEY = "your-private-key"
-GEMINI_CHAT_MODEL = "gemini-3.8-flash"
+GEMINI_CHAT_MODEL = "gemini-3.5-flash-lite"
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-2"
 ```
 
@@ -439,7 +569,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - The static guide may contain outdated or incorrect travel information. The app does not verify current prices, weather, schedules, availability, or road conditions, and does not book hotels or transport.
 - Some chunks span destinations or page boundaries. Citations identify stored page ranges rather than exact sentences, and valid source IDs alone do not prove every claim is supported.
 - Lower-ranked passages can be irrelevant. The small curated evaluation set includes earlier smoke questions and related facts, so its scores should not be generalized to all questions.
-- The live v1.0 demo has display-only history. This v1.1 branch uses volatile conversational memory with four-exchange rewrite context; heuristic follow-up detection can miss unusual wording. Name the destination when resolution is unclear. Hybrid retrieval and reranking are not implemented.
+- The live v1.0 demo has display-only history. This v1.1 branch uses volatile conversational memory with four-exchange rewrite context; heuristic follow-up detection can miss unusual wording. Name the destination when resolution is unclear. Hybrid retrieval is available on the branch; neural reranking is not implemented.
 - Query caching and session storage are designed for a demo, not concurrent production workloads. Gemini access and quota are required; Cloud restarts may clear caches and sessions.
 - Some CSS uses Streamlit DOM hooks and should be checked when upgrading Streamlit. A hosted cold restart and broad adversarial refusal testing have not been independently verified.
 
@@ -448,7 +578,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - Add unseen questions across more regions and expand the manual answer/refusal review.
 - Investigate q07's lower-ranked evidence before considering changes to retrieval.
 - Refine exact-page citations or chunk boundaries if new evaluation failures justify it.
-- Expand conversation coverage before extending memory behavior. Consider hybrid search or reranking only when measured needs justify the added complexity.
+- Expand conversation and retrieval benchmark coverage before tuning further. Consider reranking only when measured needs justify the added complexity.
 
 The [project report](docs/PROJECT_REPORT.md) preserves the development stages,
 recorded problems and solutions, evaluation methodology, and deployment evidence.

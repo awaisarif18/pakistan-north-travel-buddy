@@ -1,0 +1,59 @@
+{
+  "dense": {
+    "hit_at1": 1,
+    "hit_at5": 1,
+    "mrr_at10": 1.0,
+    "complete_evidence_at5": 1,
+    "multi_passage_coverage_at5": null,
+    "multi_passage_complete_at5": null,
+    "median_latency_ms": 28.854199999841512,
+    "mean_latency_ms": 29.707610000150453,
+    "errors": 0,
+    "denominators": {
+      "hit_at1": 8,
+      "hit_at5": 8,
+      "mrr_at10": 8,
+      "complete_evidence_at5": 7,
+      "multi_passage_coverage_at5": 0,
+      "multi_passage_complete_at5": 0
+    }
+  },
+  "bm25": {
+    "hit_at1": 1,
+    "hit_at5": 1,
+    "mrr_at10": 1.0,
+    "complete_evidence_at5": 1,
+    "multi_passage_coverage_at5": null,
+    "multi_passage_complete_at5": null,
+    "median_latency_ms": 0.7446999998137471,
+    "mean_latency_ms": 0.7709100002102787,
+    "errors": 0,
+    "denominators": {
+      "hit_at1": 8,
+      "hit_at5": 8,
+      "mrr_at10": 8,
+      "complete_evidence_at5": 7,
+      "multi_passage_coverage_at5": 0,
+      "multi_passage_complete_at5": 0
+    }
+  },
+  "hybrid": {
+    "hit_at1": 1,
+    "hit_at5": 1,
+    "mrr_at10": 1.0,
+    "complete_evidence_at5": 1,
+    "multi_passage_coverage_at5": null,
+    "multi_passage_complete_at5": null,
+    "median_latency_ms": 31.28660000038508,
+    "mean_latency_ms": 31.3274400003138,
+    "errors": 0,
+    "denominators": {
+      "hit_at1": 8,
+      "hit_at5": 8,
+      "mrr_at10": 8,
+      "complete_evidence_at5": 7,
+      "multi_passage_coverage_at5": 0,
+      "multi_passage_complete_at5": 0
+    }
+  }
+}

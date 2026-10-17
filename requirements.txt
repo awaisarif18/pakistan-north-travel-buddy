@@ -8,3 +8,5 @@ langchain-google-genai==4.4.2
 langchain-chroma==1.1.0
 langgraph==1.2.16
 langsmith==0.14.11
+rank-bm25==0.2.2
+tzdata==2026.5

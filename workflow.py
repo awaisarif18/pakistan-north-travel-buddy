@@ -14,6 +14,8 @@ from langgraph.graph import END, START, StateGraph
 from langsmith import get_current_run_tree, tracing_context
 
 import rag
+from gemini_protection import EMBEDDING_CACHE_LOCK, invoke_chat, protected_embeddings_client
+from usage_limits import UsageLimitError, question_limit
 
 
 INSTRUCTION = (
@@ -50,10 +52,11 @@ class VerifiedEmbeddings(Embeddings):
     """Reuse v1.0's exact prefix, dimensions, cache key, and cache writes."""
 
     def __init__(self, client):
-        self.client = client
+        self.client = protected_embeddings_client(client)
 
     def embed_query(self, text: str) -> list[float]:
-        return rag.query_embedding(self.client, text)
+        with EMBEDDING_CACHE_LOCK:
+            return rag.query_embedding(self.client, text)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         raise ValueError("This adapter only queries the prebuilt index. Use the reviewed ingest.py for documents.")
@@ -69,10 +72,18 @@ class ChatState(TypedDict, total=False):
     answer: dict
 
 
-def open_retriever(k=5):
+def open_retriever(k=5, mode="dense"):
+    if mode not in {"dense", "bm25", "hybrid"} or k < 1:
+        raise ValueError("Choose dense, bm25, or hybrid retrieval with k >= 1.")
     collection = rag.open_collection()  # Check the existing model and index metadata.
     if not collection.count():
         raise ValueError("The existing index is empty.")
+    if mode != "dense":
+        from retrieval import SETTINGS, HybridRetriever, keyword_retriever
+        keyword = keyword_retriever(collection, k if mode == "bm25" else SETTINGS["candidate_k"])
+        if mode == "bm25":
+            return keyword
+        return HybridRetriever(dense=open_retriever(SETTINGS["candidate_k"], mode="dense"), keyword=keyword, k=k)
     store = Chroma(
         collection_name=rag.COLLECTION_NAME,
         persist_directory=str(rag.DB_PATH),
@@ -82,14 +93,18 @@ def open_retriever(k=5):
     return store.as_retriever(search_type="similarity", search_kwargs={"k": min(k, collection.count())})
 
 
-def chat_model():
+def chat_model(*, rewrite=False):
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key or key == "your-gemini-api-key":
         raise ValueError("Set GEMINI_API_KEY in .env or Streamlit Secrets.")
-    options = {"thinking_budget": 0} if rag.CHAT_MODEL.startswith("gemini-2.5-flash") else {}
+    # One configured text model for rewriting, answers, and future planning.
+    model = rag.CHAT_MODEL
+    options = {"thinking_budget": 0} if model.startswith("gemini-2.5-flash") else {}
+    if model != "gemini-3.5-flash-lite":
+        options["temperature"] = 0.2
     return ChatGoogleGenerativeAI(
-        model=rag.CHAT_MODEL, api_key=key, vertexai=False,
-        temperature=0.2, max_tokens=1800, timeout=60, max_retries=3, **options,
+        model=model, api_key=key, vertexai=False,
+        max_tokens=300 if rewrite else 1800, timeout=60, max_retries=1, **options,
     )
 
 
@@ -130,17 +145,21 @@ def validate_citations(state: ChatState):
     return {"answer": answer, "turns": [*state.get("turns", []), turn]}
 
 
-def build_workflow(retriever, chat, *, checkpointer=None):
+def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
+    rewriter = rewriter if rewriter is not None else chat_model(rewrite=True)
+
     def rewrite_question(state: ChatState):
-        recent = [{"question": turn["question"], "resolved_question": turn["retrieval_query"],
+        recent = [{"question": turn["question"][:question_limit()], "resolved_question": turn["retrieval_query"][:question_limit()],
                    "answer": turn["answer"]["text"][:1200]} for turn in state["turns"][-4:]]
-        chain = REWRITE_PROMPT | chat.with_structured_output(REWRITE_SCHEMA, method="json_schema")
-        result = chain.invoke({"context": json.dumps(
+        chain = REWRITE_PROMPT | rewriter.with_structured_output(REWRITE_SCHEMA, method="json_schema")
+        result = invoke_chat(chain, {"context": json.dumps(
             {"recent_exchanges": recent, "question": state["question"]}, ensure_ascii=False,
         )})
         query = result["standalone_query"].strip()
         if not query:
             raise ValueError("The follow-up could not be resolved. Name the destination and try again.")
+        if len(query) > question_limit():
+            raise UsageLimitError("Please name the destination in a shorter question and try again.")
         return {"retrieval_query": state["question"] if query == state["question"].strip() else query}
 
     def retrieve_evidence(state: ChatState):
@@ -156,7 +175,7 @@ def build_workflow(retriever, chat, *, checkpointer=None):
         chain = PROMPT | chat.with_structured_output(
             answer_schema(item["source_id"] for item in context), method="json_schema",
         )
-        payload = chain.invoke({"context": json.dumps(
+        payload = invoke_chat(chain, {"context": json.dumps(
             {"question": state["retrieval_query"], "excerpts": context}, ensure_ascii=False,
         )})
         return {"payload": payload}

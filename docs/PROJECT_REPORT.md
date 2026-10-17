@@ -1112,3 +1112,460 @@ unchanged until a separately authorized release.
 
 References: [LangGraph in-memory/thread state](https://docs.langchain.com/oss/python/langgraph/add-memory)
 and [Streamlit Session State](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state).
+
+## Stage 11: dense, BM25, and hybrid retrieval comparison
+
+### Implemented methods
+
+`workflow.open_retriever(k, mode)` supports `dense`, `bm25`, and `hybrid`.
+The default dense path retains the original Chroma similarity retriever and
+verified Gemini embedding adapter. `retrieval.py` adds a LangChain BM25
+retriever over the 49 passages returned by the persistent Chroma collection.
+It needs neither extraction JSON nor the PDF at runtime. The only new
+dependency is `rank-bm25==0.2.2`, verified with `pip check` in the existing
+v1.1 environment.
+
+BM25Okapi uses k1=1.5, b=0.75, epsilon=0.25, case-folded Unicode
+alphanumeric tokens, no stemming or stopwords, and positive-score matches.
+Hybrid performs equal-weight Reciprocal Rank Fusion on the top 20 candidates
+from each method, using `sum(1/(60+rank))` and existing chunk IDs for
+deduplication. Score ties use chunk ID. Documents retain their exact original
+IDs, text, and page metadata. The app reads `RETRIEVAL_MODE`, with dense as
+the default, before creating its session-owned graph. UI, memory, grounded
+generation, and citation validation remain shared and intact.
+
+### Protocol and freeze
+
+`benchmark_retrieval.py` and `hybrid_report.py` compare the same approved
+queries/references for all methods. Development used only
+`north-tours-v1-1-dev`: 8 answerable and 2 unanswerable questions. One
+standard BM25/RRF configuration was tried; no parameter sweep was performed.
+The predeclared default-selection order was CompleteEvidence@5, Hit@5, MRR@10,
+Hit@1, with exact ties favoring dense, then hybrid, then BM25. All methods
+tied at 1.0000 on dev Hit@1/5 and MRR, and 1.0000 on the 7 eligible complete
+evidence cases. No dev case required two evidence groups.
+
+Each retriever receives the exact approved question text, with no conversation
+history or query rewriting during the benchmark. Generation is excluded.
+
+Dense was therefore selected before the final held-out comparison. The
+`frozen_settings.json` manifest records the parameters, source/code hashes,
+selection rule, and timestamp. The later exclusive `held_out_started.json`
+guard prevents a repeated final run within this benchmark group. Exactly one
+held-out comparison of the three methods used `north-tours-v1-1-heldout`.
+No code or retrieval-setting changes followed its results.
+
+Recorded commands, in order:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe benchmark_retrieval.py dev --group hybrid-v11-20261017
+.\.venv-v1.1\Scripts\python.exe benchmark_retrieval.py freeze --group hybrid-v11-20261017
+.\.venv-v1.1\Scripts\python.exe benchmark_retrieval.py held_out --group hybrid-v11-20261017
+```
+
+### Actual results and regressions
+
+| Held-out method | Hit@1 | Hit@5 | MRR@10 | CompleteEvidence@5 | Multi-passage group coverage@5 | Multi-passage complete@5 |
+|---|---:|---:|---:|---:|---:|---:|
+| Dense | 0.9375 | 1.0000 | 0.9688 | 0.9677 | 0.9706 | 0.9412 |
+| BM25 | 0.8750 | 1.0000 | 0.9323 | 0.9355 | 0.9412 | 0.8824 |
+| Hybrid | 0.9375 | 1.0000 | 0.9635 | 0.9677 | 0.9706 | 0.9412 |
+
+Hit/MRR use 32 answerable held-out cases. CompleteEvidence@5 uses 31
+questions with required groups. Multi-passage metrics use only the 17
+questions requiring two groups: group coverage averages the fraction covered;
+complete coverage requires both. Dense/hybrid cover 33/34 groups and complete
+16/17 cases; BM25 covers 32/34 groups and completes 15/17. The eight negative
+held-out questions retain actual rankings/latency but have no retrieval
+accuracy or refusal scores. There were zero retrieval errors.
+
+On h08, BM25 and hybrid improve the first gold from dense rank 2 to rank 1.
+On h20, BM25 moves Gondogoro evidence to rank 6 and fails complete top-five
+coverage; fusion recovers it at rank 4 but places the first gold at rank 3.
+On h36, every method misses one required group in the top five: dense finds
+it at rank 6, hybrid at rank 9, and BM25 below the top ten. BM25 also demotes
+the first gold on h17 and h36 by putting the broad closing correction-summary
+chunk first. This is post-test analysis only; no correction or tuning followed.
+
+The [full benchmark report](../evals/experiments/hybrid-v11-20261017/summary.md)
+links all six LangSmith experiments and contains the full per-query regression
+analysis, paired CSVs, per-method CSV/Markdown exports, and original ranked IDs
+with physical-page metadata. New artifacts never overwrite old evaluations.
+
+LangSmith server read-back matched all 150 target rankings and page metadata
+to local outputs. Its feedback storage rounds h20's reciprocal rank to 0.3333;
+BM25/hybrid MRR aggregates differ from full-precision local values by about
+0.00000104, while all reported four-decimal values agree. No score or ranking
+was changed to conceal that storage precision difference.
+
+### Latency, preservation, and limits
+
+Median warm-cache held-out invocation latency was 58.655 ms for dense,
+0.839 ms for BM25, and 58.479 ms for hybrid. Means were 60.660, 0.872,
+and 60.305 ms respectively. Measurement includes cache reads and retrieval,
+but excludes startup, query-vector preparation, trace upload, and parity
+checks. One sequential sample per question/method was recorded locally;
+these are not cloud benchmarks. Dense/hybrid timing differences are noise.
+
+Fifty missing query vectors were generated once and then reused. There were
+no document-embedding, generation, or LLM-judge calls. The original index was
+never opened by benchmark operations, which used a private copy. All 50 dense
+top-ten rankings, source texts, and metadata exactly matched preserved
+`rag.retrieve` outputs on the same new queries and embeddings. Its collection
+still has 49 vectors and the original logical fingerprint. Historical v1.0
+scores were not rerun or overwritten; their different questions/denominators
+make direct score comparisons invalid.
+
+Focused checks passed RRF arithmetic/deduplication, tokenization, evidence
+coverage eligibility, BM25 loading without extraction files or a Gemini key,
+all three retrievers in the existing graph, top-five/top-ten prefix consistency,
+and page citation validation. The seven controlled conversational-memory and
+Streamlit rerun/session checks also passed, without Gemini calls.
+
+Dense remains the development-frozen default recommendation. The dataset
+still cannot distinguish configurations confidently: only 8 answerable dev
+cases, no multi-passage dev cases, 32 answerable held-out cases, one PDF, and
+related earlier facts. Hit@5 saturates for every method; one two-group case
+changes multi-passage completeness by about 5.88 percentage points. No claim
+of statistical significance is made. BM25 remains useful as a fast lexical
+option, and hybrid is available for comparison. Future tuning needs a new
+independent test set. No push or deployment occurred.
+
+## Stage 12: anonymous usage limits and Gemini protection
+
+Historical stage record. The later single-model configuration in Stage 13 supersedes this stage's separate answer/rewrite model and budget settings.
+
+### Policy and admission
+
+`usage_limits.py` separates policy, per-session timestamp records, shared
+process counters, and model-call reservations. Streamlit stores one usage
+record independently of its conversation thread. Defaults are 3 chat requests
+and 1 future trip-planning request per rolling 3,600 seconds, 12 seconds
+between admissions, and a 700-character question limit. Monotonic time drives
+session and minute windows. Expired timestamps are pruned. New conversation
+clears conversation and pending input but preserves quota state and subject ID.
+
+An input callback creates a submission UUID once. The main rerun consumes it
+once, and admitted IDs remain recorded for the rolling window. Example prompts
+use the same admission path. Invalid input, exhausted session quota, cooldown,
+concurrency, or known API-call shortage reject before LangGraph runs. Denials
+consume no admission quota or API calls. Admitted failures count because they
+may already have consumed provider capacity.
+
+One `st.cache_resource` singleton owns an `RLock` and allows 2 simultaneous
+workflows plus 3 workflow starts per rolling minute. Before admission, it
+atomically reserves one answer call, one rewrite only when the existing
+follow-up gate requires it, and at most one dense/hybrid embedding miss.
+BM25 reserves no embeddings. Unused reservations are released in `finally`;
+actual attempts, including failures, remain counted. Stale worker contexts
+cannot spend a released reservation. This is best-effort process-local
+admission, not a platform-wide or per-person quota system.
+
+### Verified provider quotas and application budgets
+
+The initial local inspection could not access authenticated AI Studio quotas,
+so the first implementation left shared minute budgets unconfigured. The user
+subsequently inspected the actual Free Tier project and supplied the following
+values on 2026-10-17. These replace the pending configuration state; they are
+user-verified project values, not generic published defaults.
+
+| Model | Provider RPM | Provider input TPM | Provider RPD | App calls/minute | App calls/Pacific day | App estimated input tokens/minute |
+|---|---|---|---|---|---|---|
+| `gemini-3.8-flash` | 5 | 250,000 | 20 | 3 | 12 | 150,000 |
+| `gemini-3.5-flash-lite` | 15 | 250,000 | 500 | 6 | 60 | 100,000 |
+| `gemini-embedding-2` | 100 | 30,000 | 1,000 | 30 | 300 | 20,000 |
+
+The 3.8 answer budget is the user's recommended conservative setting. Rewrite
+and embedding budgets leave additional headroom below their verified quotas.
+The separate 3-workflow/minute ceiling is an admission choice, not a claim
+that a workflow equals a Gemini request. All defaults have environment-variable
+overrides in `.env.example` and README. Cached resources require a process
+restart after configuration changes. No key, project identifier, or private
+quota-page screenshot is stored in documentation.
+
+Daily accounting converts injected UTC wall-clock time to
+`ZoneInfo("America/Los_Angeles")` and compares calendar dates. This handles
+23-hour spring and 25-hour autumn days without a fixed UTC offset. The pinned
+`tzdata==2026.5` package, already present locally, supplies IANA timezone data
+on Windows and systems without timezone files. Daily actual-call counters
+reset on a new Pacific date; outstanding reservations remain reserved. Calls
+are charged when they start, including workflows spanning midnight.
+
+Minute and daily limits are independent for answer generation, rewriting,
+and embeddings. A rolling input-token guard uses UTF-8 serialized payload
+byte counts, plus 4,096 for chat prompt/schema headroom or 256 for embeddings.
+These conservative local estimates are not exact Gemini token counts. They
+avoid a countTokens API request and block oversized minute totals before the
+corresponding invocation. Other clients, provider tokenizer differences,
+capacity changes, or a process restart can still lead to provider 429s.
+
+### Approved Flash Lite rewrite routing
+
+After the user authorized trying Flash Lite and implementing it if successful,
+one native structured-output call was made to `gemini-3.5-flash-lite` through
+the installed LangChain integration. Tracing was explicitly disabled. Given
+a recent exchange about Rakaposhi Base Camp, the input
+`What's the best season?` produced:
+
+> What's the best season to visit Rakaposhi Base Camp?
+
+The JSON contained the required `standalone_query` field and preserved the
+destination and intent. The SDK warned that sampling settings are ignored for
+this model, so its constructor omits an explicit temperature. No additional
+live model test, generation evaluation, or held-out benchmark was run.
+The local record is `data/usage-checks/lite_smoke.json`.
+
+`GEMINI_REWRITE_MODEL` now defaults to `gemini-3.5-flash-lite`. The public app
+caches separate stateless answer/rewrite clients and passes both into the
+session-owned LangGraph. Conditional rewriting uses Flash Lite with a
+300-token output limit. Gemini 3.8 Flash still generates answers with the
+existing 1,800-token limit, prompt, retrieval evidence, and citation validator.
+No automatic fallback is implemented. Selecting the answer model for rewrites
+shares its answer-call bucket rather than evading that model's allowance.
+Other model overrides require revisiting the corresponding configured budgets.
+
+This conserves the 3.8 daily allowance on follow-ups: a successful dense or
+hybrid standalone turn needs at most one 3.8 answer and one embedding miss.
+An ambiguous follow-up adds one separate Flash Lite call, not another 3.8 call.
+BM25 needs no embeddings. Cache hits remove the embedding invocation; empty
+evidence skips answer generation. These are invocation upper bounds, not
+measured token costs. One successful smoke rewrite does not establish broad
+rewrite accuracy or constitute a retrieval benchmark.
+
+### Gemini call-site audit and safe failures
+
+| Call path | Protection |
+|---|---|
+| `workflow.py` conditional rewrite | `invoke_chat(..., kind="rewrite")`; separate Flash Lite minute/day/input budgets. If configured to the answer model, uses the answer bucket. |
+| Grounded generation | One `invoke_chat` answer attempt against 3.8 minute/day/input budgets; skipped with no evidence. |
+| `VerifiedEmbeddings` through the original query cache | Protected `embed_content` boundary counts only cache misses against embedding-specific budgets. Original prefix, model, dimensions, cache keys, and ranking remain unchanged. |
+| Legacy SDK, ingestion, evaluation, and benchmark CLIs | Explicit developer operations outside anonymous frontend admission; not run for these checks. They do not share the public process counters. |
+
+`gemini_protection.py` applies embedding `HttpRetryOptions(attempts=1)`.
+Both LangChain models use `max_retries=1`, which the installed integration maps
+to one SDK attempt. Zero would select SDK default retries. No retry, judge,
+or repair loop was introduced. The context-scoped reservation propagates to
+LangGraph nodes and is verified with mocked SDK boundaries.
+
+HTTP 429 and wrapped `RESOURCE_EXHAUSTED` errors produce a fixed friendly
+message and 60-second process backoff. Raw exceptions, keys, project IDs, and
+sensitive diagnostics do not appear in the UI. Backoff does not promise a
+provider reset. Session quota, local daily allowance, cooldown, and busy
+messages distinguish the actual limit category. Already consumed calls are
+never refunded after a later workflow step fails.
+
+An embedding-cache lock serializes public query-cache reads, misses, and
+writes, preventing duplicate identical misses and temporary-file races.
+`rag.py` remains unchanged. Rewrite context stays at four exchanges; previous
+questions/resolved queries are bounded by the input limit, assistant snippets
+by 1,200 characters, and resolved queries are length-checked before retrieval.
+Public chat always sets `trace=False`, independently of local development
+tracing configuration. No public-user conversation upload was added.
+
+The planner is not implemented and makes zero calls. Its separate one-request
+session allowance is ready; future admissions must explicitly declare bounded
+per-model call budgets rather than assume one plan equals one API call.
+
+### Focused verification
+
+Run the following without credentials or real Gemini requests in the checks:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_usage.py
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+```
+
+`verify_usage.py` includes fake clocks, mocked SDKs, Streamlit AppTest,
+concurrent threads, and `verify_quota_windows.py`. All checks passed. The only
+real Gemini call in this update was the separately authorized Flash Lite
+smoke rewrite; the test suite itself made zero real Gemini calls.
+
+| Check | Recorded result |
+|---|---|
+| Session quota | Three admitted; fourth blocked; sliding expiry permits new requests. |
+| Cooldown/input | Rapid submissions and 701-character inputs blocked before workflow execution. |
+| Session separation | Independent subject IDs and counters. |
+| Shared concurrency | Twenty simultaneous workflows admitted two and blocked eighteen. |
+| Rerun/reset | No duplicate graph call or quota charge; clear retains subject and allowance. |
+| Admission rejection | Zero fake model calls, including known API shortage. |
+| Provider 429 | One mocked SDK attempt, friendly message, backoff, cleanup, no diagnostic exposure. |
+| API-call races | Twenty concurrent attempts admit exactly five against synthetic five-call minute/day caps. |
+| Future planner quota | One admitted, second blocked; chat allowance remains three. |
+| Separate model calls | Three controlled turns consume three answer, one rewrite, and two cached-query-miss embedding attempts. |
+| Daily actual calls | Twelve one-answer workflows accepted, thirteenth answer blocked. Unused reservations consume no daily calls. |
+| Model independence | Exhausted answer budget still permits rewrite and embedding attempts; their own budgets independently block excess. |
+| Input-token accounting | Over-budget synthetic inputs block before SDK calls; minute expiry restores capacity. |
+| Pacific daily reset | Spring day lasts 23 hours, autumn day 25; DST transitions within a day do not reset counts. |
+| Midnight workflow | Reservation survives rollover and prevents another caller consuming its capacity. |
+| Conversation/citations | All seven controlled conversation scenarios and Streamlit integration passed. |
+
+Additional checks cover duplicate IDs, expired minute windows, missing required
+configuration, explicit workflow-budget exhaustion, cleanup on failures,
+stale-context rejection, unchanged 3,072-dimensional embedding prefix and
+cache semantics, and one-attempt SDK options. Dependency consistency passed.
+No document vectors, old/new gold labels, retrieval rankings, saved benchmark
+results, theme, or existing deployment were changed by this update.
+
+Files involved: `usage_limits.py`, `gemini_protection.py`, `workflow.py`,
+`app.py`, `verify_usage.py`, `verify_quota_windows.py`, `verify_conversation.py`,
+`.env.example`, `requirements.txt`, README, and this report. Detailed local
+results are under ignored `data/usage-checks/`.
+
+### Limits and future accounts
+
+Browser reload or a new session bypasses anonymous session quotas. Process
+restart clears minute/day usage counters, and different processes or replicas
+have independent counters. The current day allowance therefore cannot
+guarantee a project-wide daily cap, even though its reset date aligns with
+Google's quota day. Explicit CLI tools, other apps, and external API clients
+can consume capacity outside this limiter. No IP or browser fingerprint is
+collected. This is not protection against all automated abuse.
+
+Future stronger enforcement requires authenticated subjects, durable shared
+atomic counters, separate account/plan allowances, measured planner budgets,
+and provider usage/spend monitoring. None of that infrastructure is added now.
+To review actual quotas, sign into AI Studio, select the project owning the
+key, and inspect RPM, input TPM, RPD, and current usage for each configured
+model. Keep credentials and project details private. Revisit budgets when the
+provider tier or model changes. No commit, push, deployment, full benchmark,
+or document-embedding call occurred in this milestone.
+
+References: [Gemini project scope and Pacific resets](https://ai.google.dev/gemini-api/docs/rate-limits),
+[Flash Lite structured output support](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite),
+[Gemini troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting),
+and [Streamlit shared cached resources](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.cache_resource).
+
+## Stage 13: one Flash Lite text model and shared generation budget
+
+### Configuration and implementation
+
+The user approved Gemini 3.5 Flash Lite for all text generation after verifying
+its project Free Tier limits of 15 RPM, 250,000 input TPM, and 500 RPD.
+`GEMINI_CHAT_MODEL=gemini-3.5-flash-lite` is now the sole text-model setting.
+Both LangChain clients use it, retaining separate 300-token rewrite and
+1,800-token answer output limits. The local `.env` model setting was updated;
+credentials were not changed or printed. The default in `rag.py` also changed
+by one line. Its embedding, retrieval, cache, and citation logic are unchanged.
+
+`GEMINI_REWRITE_MODEL` and the old separate `CHAT_API_*` / `REWRITE_API_*`
+budgets are retired. There is no automatic Gemini 3.8 fallback. Future planning
+must use `chat_model()` and the same configured text model, with a bounded
+`generation` reservation. No planner, separate planner model, or new framework
+was introduced.
+
+| Shared application setting | Default |
+|---|---|
+| `GENERATION_API_CALLS_PER_MINUTE` | 10, actual rewrite/answer/future-plan attempts together |
+| `GENERATION_API_CALLS_PER_DAY` | 300, same shared bucket |
+| `GENERATION_INPUT_TOKENS_PER_MINUTE` | 150000, conservative payload estimate |
+| `EMBEDDING_API_CALLS_PER_MINUTE` / `EMBEDDING_API_CALLS_PER_DAY` | 30 / 300, unchanged separate bucket |
+| `EMBEDDING_INPUT_TOKENS_PER_MINUTE` | 20000, unchanged |
+
+Session policy remains 3 chats and 1 future plan per rolling hour, 12-second
+cooldown, 700-character questions, 2 concurrent workflows, and 3 workflow starts
+per rolling minute. Workflow starts and actual API calls remain different
+counters. Standalone admission reserves one generation; an ambiguous follow-up
+reserves two from the same bucket. Dense/hybrid retrieval reserves at most one
+embedding miss. BM25 reserves none. Cache hits and skipped stages return unused
+reservations, while actual attempts, including failures, consume capacity.
+
+`invoke_chat` always guards the `generation` bucket, so a rewrite cannot use
+an independent allowance. Future planning uses that same boundary. The planner
+admission interface accepts `api_budget={"generation": N, "embedding": M}`;
+it cannot silently assume a plan costs one call. No planner call is made now.
+
+Pacific calendar-day accounting, DST handling, token-estimate protection,
+thread-safe reservations, session isolation, rerun deduplication, one-attempt
+SDK calls, friendly 429 handling, and 60-second process backoff remain intact.
+Provider-side quotas are model-specific within the project. The local counters
+remain best effort: restarts reset them, replicas and developer CLIs do not
+share them, and browser reload can bypass session allowances. Exact project-wide
+enforcement would need durable shared counters and trusted user identities.
+
+### Mocked regression results
+
+Both commands passed, with zero real Gemini calls or LangSmith uploads:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_usage.py
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+```
+
+The usage script passed session limits/expiry, cooldown/input length, separate
+sessions, concurrency, reruns, reset preservation, denied-request zero-call
+behavior, one-attempt 429 handling for answers and rewrites, and reservation
+cleanup. The original configurable eight-request/ninth-blocked case also passes.
+Three controlled chat turns now consume four shared generation attempts and
+two embedding cache misses, demonstrating that follow-up rewriting is counted.
+
+Quota-window checks accept 10 actual generation attempts then block the 11th
+within a minute, accept 300 attempts then block the 301st in a Pacific day,
+release unused reservations without charging daily calls, and independently
+enforce embedding budgets. A synthetic chat plus future planner consumes the
+same generation allowance. Concurrent daily calls, midnight reservations,
+and 23/25-hour DST days pass. All seven controlled conversation scenarios,
+existing citation rejection checks, refusal behavior, production trace opt-out,
+and Streamlit integration pass. Tests do not rerun retrieval benchmarks.
+
+### Three-question real answer-quality smoke test
+
+[Recorded answers and manual comparisons](../evals/answer_quality_flash_lite.md)
+cover q01 fuel advice, q17 multi-fact Skardu/Deosai travel, and q21 unsupported
+live weather. The existing LangGraph generation and citation-validation nodes
+ran against the same audited top-five passages as the earlier Gemini 3.8 review.
+Passages and metadata were loaded from a temporary copy of the existing Chroma
+snapshot, which opened with 49 vectors. Replaying those rankings isolates the
+model change and avoids new embedding calls. No live retrieval ranking or
+benchmark was recomputed. Each case used a fresh conversation, so the smoke
+required no rewrite calls.
+
+| Actual observation | Result |
+|---|---|
+| Supported factual answers | 2/2 passed source review |
+| Requested-fact completeness | 2/2 passed |
+| Citation support and IDs | 2/2 passed |
+| Unsupported live-weather request | 1/1 appropriately refused, no citations |
+| Flash Lite generation attempts | 3 |
+| Gemini 3.8 attempts | 0 |
+| Query/document embedding attempts | 0 / 0 |
+| LangSmith benchmark/evaluation calls | 0 |
+
+The coding assistant checked original physical PDF pages 7, 11, 38, and 40
+using PyMuPDF and compared source IDs with stored metadata. No LLM judge was
+used. The fuel answer retained Sost as the necessary complete-fill stop and
+no fuel on the round trip. It omitted the optional 75-90 km distance and
+Karimabad/Aliabad guidance included by 3.8. The multi-fact answer retained
+NATCO, daily roughly 2 pm departures, estimated PKR 4,630-5,500 fares,
+12-14 hours, and November-May Deosai vehicle closure with the same supporting
+source chunks. The weather refusal was identical to the saved 3.8 output.
+
+No substantive regression was observed on these three cases. This small,
+single-run sample is insufficient to establish broad quality equivalence.
+No latency/cost comparison was measured. The prior 10-case 3.8 answer review,
+old/new gold labels, and all retrieval benchmark exports remain unchanged.
+The earlier single Flash Lite rewrite smoke belongs to Stage 12; this stage
+consumed exactly three additional real generation attempts.
+
+The one-off smoke process saved all three results before Windows prevented
+cleanup of an open Chroma file in its temporary copy. A subsequent explicit
+delete was rejected by automatic approval review with "blocked by policy".
+A partial temporary snapshot remains under the OS temporary directory, outside
+the repository. This did not affect the original index or saved answers, and
+no API call was repeated. The application itself has no new temporary-index
+dependency.
+
+### Files and completion state
+
+Updated `rag.py`, `workflow.py`, `app.py`, `usage_limits.py`,
+`gemini_protection.py`, `verify_usage.py`, `verify_quota_windows.py`,
+`verify_conversation.py`, `.env.example`, local ignored `.env`, README, and
+this report. Added `evals/answer_quality_flash_lite.md`; raw responses and
+preservation checks remain under ignored `data/usage-checks/`.
+No dependencies were added for this model switch. The pre-existing pinned
+`tzdata` still supplies Pacific timezone data.
+
+The work remains local on `feature/v1.1-langgraph`. No commit, push,
+deployment, document embedding, or full LangSmith benchmark was performed.
+The deployed v1.0 app remains unchanged. Future deployment must explicitly
+set `GEMINI_CHAT_MODEL` and the unified `GENERATION_*` configuration in
+Streamlit Secrets, then restart to recreate cached clients and counters.
