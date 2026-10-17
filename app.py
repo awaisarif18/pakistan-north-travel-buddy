@@ -3,9 +3,11 @@
 from html import escape
 from pathlib import Path
 import re
+from uuid import uuid4
 
 import streamlit as st
 from google.genai import errors
+from langgraph.checkpoint.memory import InMemorySaver
 
 from rag import TRAVEL_NOTICE, page_label
 from workflow import build_workflow, chat_model, open_retriever, run_question
@@ -27,7 +29,8 @@ CITATION = r"\[(PDF pages? \d+(?:-\d+)?(?:; PDF pages? \d+(?:-\d+)?)*)\]"
 
 @st.cache_resource
 def resources():
-    return build_workflow(open_retriever(), chat_model())
+    # Only stateless clients are shared; each session owns its graph/checkpointer.
+    return open_retriever(), chat_model()
 
 
 def show_answer(message):
@@ -87,13 +90,11 @@ def empty_state():
     return None
 
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 with st.sidebar:
     st.html(f'<div class="sidebar-brand"><div class="brand-mark">{MOUNTAIN}</div>'
             '<div><strong>North Tours</strong><span>Your Pakistan travel companion</span></div></div>')
     if st.button("New conversation", icon=":material/edit_square:", key="clear_chat", use_container_width=True):
-        st.session_state.messages = []
+        st.session_state.pop("conversation", None)
         st.rerun()
     st.html('<div class="sidebar-section"><p class="eyebrow">The guide</p>'
             '<h2>A little closer to the north.</h2><p>From Hunza’s trails to the valleys of Kalash. '
@@ -101,24 +102,28 @@ with st.sidebar:
             '<div class="sidebar-facts"><span>92 pages</span><span>8 regions</span><span>PDF sources</span></div>')
     with st.expander("About this companion", icon=":material/info:"):
         st.write("Answers come from your Pakistan North Tours guide. Open the source evidence beneath an answer to read the passages behind it.")
-        st.caption("Name the destination in each question. Earlier messages are shown for reference; follow-up questions are not automatically linked.")
+        st.caption("Ask follow-up questions about your current destination. Context uses the last four exchanges and resets with a new conversation.")
     st.html('<p class="sidebar-note">For thoughtful planning.<br>Always check local conditions before you go.</p>')
 
 st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'
         '<span class="workspace-tag"><i></i> Your guide to the north</span></header>')
 try:
-    workflow = resources()
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = (str(uuid4()), build_workflow(*resources(), checkpointer=InMemorySaver()))
+    thread_id, workflow = st.session_state.conversation
+    turns = workflow.get_state({"configurable": {"thread_id": thread_id}}).values.get("turns", [])
 except Exception:
     st.error("The guide could not be opened. Check the local index and Gemini configuration, then reload the app.")
     st.stop()
 
-example = empty_state() if not st.session_state.messages else None
-if st.session_state.messages:
+example = empty_state() if not turns else None
+if turns:
     st.html('<div class="conversation-heading"><h1>A little guidance, wherever you go.</h1>'
             '<p>Answers from the guide. Sources within reach.</p></div>')
 with st.container(key="conversation"):
-    for index, message in enumerate(st.session_state.messages):
-        show_message(message, index)
+    for index, turn in enumerate(turns):
+        show_message({"role": "user", "text": turn["question"]}, f"{index}_user")
+        show_message({"role": "assistant", **turn["answer"], "matches": turn["matches"]}, f"{index}_assistant")
 
 with st.container(key="travel_note"):
     st.caption(TRAVEL_NOTICE)
@@ -129,10 +134,7 @@ if question:
         with st.container(key="chat_assistant_pending"):
             with st.chat_message("assistant", avatar=":material/landscape:"):
                 with st.spinner("Searching the guide…"):
-                    result = run_question(workflow, question, trace=False)
-                    matches, answer = result["matches"], result["answer"]
-        message = {"role": "assistant", **answer, "matches": matches}
-        st.session_state.messages.extend([{"role": "user", "text": question}, message])
+                    run_question(workflow, question, thread_id=thread_id, trace=False)
         st.rerun()
     except errors.APIError as error:
         st.error(f"The guide couldn't answer just now. Gemini returned status {error.code}; check quota or model access and try again.")

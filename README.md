@@ -5,7 +5,7 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
 **v1.1 development branch:** `feature/v1.1-langgraph` migrates the local chatbot
-to LangChain and a linear LangGraph. The live demo, `main`, and tag `v1.0.0`
+to LangChain and LangGraph, with session-scoped conversational memory. The live demo, `main`, and tag `v1.0.0`
 remain on the stable v1.0 implementation. This migration has not been deployed.
 
 ## Live demo and source code
@@ -37,8 +37,10 @@ remain on the stable v1.0 implementation. This migration has not been deployed.
 
 Ask about routes, trekking seasons, transport, fuel stops, costs, and facilities.
 For example: "Where should I refuel before traveling to Khunjerab Pass?"
-Name the destination in each question. Conversation history is displayed but is
-not passed into retrieval or answer generation as conversational memory.
+The live v1.0 demo requires explicit destinations in each question. On this
+v1.1 branch, follow-ups can resolve the current destination from the last four
+exchanges. Answers still use retrieved PDF evidence rather than conversation
+history as a source.
 
 ## RAG architecture
 
@@ -48,12 +50,17 @@ flowchart LR
     X --> E[Gemini document embeddings, once]
     E --> C[(Persistent ChromaDB: 49 vectors)]
     Q[User question] --> PQ[Prepare question]
-    PQ --> QE[Verified cached Gemini query embedding adapter]
+    PQ --> F{Ambiguous follow-up?}
+    F -->|No| QE[Verified cached Gemini query embedding adapter]
+    F -->|Yes| W[Rewrite using four recent exchanges]
+    H[Session-owned in-memory graph state] --> W
+    W --> QE
     QE --> C
     C --> R[Top five passages]
     R --> G[LangChain prompt and structured Gemini answer]
     G --> V[Validate source IDs and add PDF citations]
     V --> UI[Streamlit answer and source evidence]
+    V --> H
 ```
 
 Chunks contain approximately 400-697 estimated tokens, with paragraph overlap
@@ -65,14 +72,31 @@ The model selects source IDs rather than inventing page numbers. The application
 validates those IDs and appends page ranges from the retrieved metadata. This
 checks citation references, not the truth of every generated statement.
 
-`workflow.py` compiles typed state into four LangGraph nodes:
-`START → prepare_question → retrieve_evidence → generate_grounded_answer → validate_citations → END`.
+`workflow.py` compiles typed state into this LangGraph workflow:
+`START → prepare_question → optional rewrite_question → retrieve_evidence → generate_grounded_answer → validate_citations → END`.
 Retrieval uses LangChain `Document` objects and a similarity retriever over the
 existing Chroma collection. The embedding adapter delegates to v1.0's exact
 query-prefix, dimension, cache-key, and cache-write implementation in `rag.py`.
 It blocks document embedding. The original `rag.py`, ingestion, and evaluator
-remain intact as the migration reference. No agents, tools, loops, checkpointer,
-or conversational memory were added.
+remain intact as the migration reference. There are no agents, tools, or loops.
+Each Streamlit session owns an `InMemorySaver`, graph, and random thread ID.
+Completed graph turns are the sole chat-history source. Reruns read state;
+they do not replay prior questions. New conversation replaces the graph and
+thread, and server/session loss clears memory. Only stateless clients are cached
+across sessions. The original question stays visible, while retrieval and
+generation use the resolved standalone query. Generation receives no history.
+
+Run the small controlled memory checks, with no Gemini calls:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+# Optional: upload synthetic development traces, never public-user conversations.
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py --trace
+```
+
+See the [conversation review](evals/conversation_review.md) for seven scenario
+results, live Gemini spot checks, citation checks, and limitations. This does
+not run the approved held-out benchmark or change historical retrieval scores.
 
 ## Technology stack
 
@@ -415,7 +439,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - The static guide may contain outdated or incorrect travel information. The app does not verify current prices, weather, schedules, availability, or road conditions, and does not book hotels or transport.
 - Some chunks span destinations or page boundaries. Citations identify stored page ranges rather than exact sentences, and valid source IDs alone do not prove every claim is supported.
 - Lower-ranked passages can be irrelevant. The small curated evaluation set includes earlier smoke questions and related facts, so its scores should not be generalized to all questions.
-- Conversation history is display-only. Ask standalone questions with explicit destinations; conversational memory, hybrid retrieval, and reranking are not implemented.
+- The live v1.0 demo has display-only history. This v1.1 branch uses volatile conversational memory with four-exchange rewrite context; heuristic follow-up detection can miss unusual wording. Name the destination when resolution is unclear. Hybrid retrieval and reranking are not implemented.
 - Query caching and session storage are designed for a demo, not concurrent production workloads. Gemini access and quota are required; Cloud restarts may clear caches and sessions.
 - Some CSS uses Streamlit DOM hooks and should be checked when upgrading Streamlit. A hosted cold restart and broad adversarial refusal testing have not been independently verified.
 
@@ -424,7 +448,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - Add unseen questions across more regions and expand the manual answer/refusal review.
 - Investigate q07's lower-ranked evidence before considering changes to retrieval.
 - Refine exact-page citations or chunk boundaries if new evaluation failures justify it.
-- Consider conversational follow-up support, hybrid search, or reranking only when measured needs justify the added complexity.
+- Expand conversation coverage before extending memory behavior. Consider hybrid search or reranking only when measured needs justify the added complexity.
 
 The [project report](docs/PROJECT_REPORT.md) preserves the development stages,
 recorded problems and solutions, evaluation methodology, and deployment evidence.

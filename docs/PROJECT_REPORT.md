@@ -1009,3 +1009,106 @@ conversation-memory work has not started.
 Official references: [LangSmith tracing control](https://docs.langchain.com/langsmith/trace-without-env-vars),
 [dataset management](https://docs.langchain.com/langsmith/manage-datasets-programmatically),
 and [code evaluator/experiment interfaces](https://docs.langchain.com/langsmith/evaluate-llm-application).
+
+## Stage 10: session-scoped conversational memory
+
+### Implementation and architecture
+
+`workflow.py` now stores completed conversation turns in typed LangGraph state.
+An optional `InMemorySaver` enables thread-level memory. Single-turn callers
+that omit the checkpointer retain the earlier stateless path and exact query
+string behavior. The updated graph is:
+
+```mermaid
+flowchart LR
+    START --> P[Prepare original question]
+    P --> C{History and follow-up candidate?}
+    C -->|No| R[Retrieve top five]
+    C -->|Yes| W[Rewrite using four recent exchanges]
+    W --> R
+    R --> G[Generate from resolved question and PDF evidence]
+    G --> V[Validate citations and commit completed turn]
+    V --> END
+```
+
+The follow-up gate detects pronouns, nearby/there references, and short
+season/accommodation/cost questions. Only candidates with existing history
+invoke the same configured Gemini model for structured query rewriting.
+The rewriter is instructed to retain standalone questions unchanged, follow
+the latest explicit destination, preserve live-data qualifiers, and add no
+travel facts. It receives at most four completed exchanges, with each assistant
+answer truncated to 1,200 characters. The existing embedding adapter queries
+using the resolved string; document prefixes, dimensions, index, similarity,
+and cache semantics are unchanged. Original user wording remains in the UI.
+
+Generation receives the resolved question and fresh retrieved PDF excerpts,
+never the chat history as factual evidence. The existing `rag.format_answer`
+still validates sources and attaches page metadata. A completed turn is added
+only after citation validation succeeds; lists are replaced rather than
+replaying old messages into a reducer. Failed turns do not appear as completed
+history and recovery does not duplicate them.
+
+`app.py` now caches only stateless retriever/model clients. Each Streamlit
+session owns its graph, in-memory saver, and random UUID thread ID in one
+session-state entry. The graph's completed turns are the sole history used
+for both rendering and rewrite context. A rerun only reads this state unless
+there is a new submission. New conversation replaces both saver and thread.
+This avoids global shared memory and a competing Streamlit message list while
+preserving the existing visual layout, evidence cards, stylesheet, and theme.
+
+Files changed: `workflow.py`, `app.py`, `verify_conversation.py`, `README.md`,
+this report, and `evals/conversation_review.md`. Dependencies, models, original
+retrieval/evaluation code, approved labels, and document embeddings are unchanged.
+
+### Verification and actual observations
+
+The lightweight `verify_conversation.py` script uses deterministic retrieval
+and model fixtures with the actual graph and Streamlit AppTest:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py --trace
+```
+
+All seven scenarios passed: destination resolution, accommodation, cost,
+switching to Skardu, reset, an unrelated standalone question, and two-session
+separation. Additional checks passed original-question display, zero extra
+calls/turns on a plain rerun, four-exchange context bounding, original citation
+validation, refusal behavior, citation-failure recovery, and explicit public
+tracing opt-out even when ambient tracing is enabled. No Gemini calls were
+used for these controlled/AppTest checks. The development trace helper was
+corrected to use the installed SDK's `Client.flush()` and `RunTree.get_url()`.
+
+A separate live dialogue used a copied Chroma index and copied query cache,
+without changing original artifacts. Five grounded answers completed:
+Rakaposhi overview, season, accommodation, accommodation cost, and Skardu
+overview. All five passed the recorded manual source-support review and
+structural citation checks. The first three follow-ups resolved to Rakaposhi;
+the explicit Skardu question remained unchanged. On the next season follow-up,
+Gemini raised `GoogleRateLimitError` in the rewrite node. Further live calls
+were stopped, so the post-switch follow-up, unrelated turn, second session,
+reset, and unsupported live-weather request were not completed live. Their
+controlled results remain separate from the partial live check.
+
+The live trace contains eight successful model spans and one failed rewrite
+span. Five query embeddings were added only to the isolated test cache;
+document embeddings were never generated. Original index/cache/benchmark
+hashes were preserved, and the copied collection still had 49 vectors with
+the original logical fingerprint. The full results, live questions/answers,
+source IDs, and two private LangSmith trace links are in
+[`evals/conversation_review.md`](../evals/conversation_review.md). No held-out
+benchmark, tuning, push, or deployment occurred.
+
+### Limits
+
+Memory is volatile and is lost when the session or server restarts. Follow-up
+detection is heuristic; rewrite quality is model-dependent and limited to four
+recent exchanges. A rewrite adds a model call and can encounter rate limits.
+Full displayed history and checkpoint snapshots accumulate in RAM until reset;
+no persistent user store or long-term memory was introduced. Citation checks
+verify references, not universal factual correctness. Live follow-up testing
+is incomplete after the observed rate limit. The live v1.0 deployment remains
+unchanged until a separately authorized release.
+
+References: [LangGraph in-memory/thread state](https://docs.langchain.com/oss/python/langgraph/add-memory)
+and [Streamlit Session State](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.session_state).
