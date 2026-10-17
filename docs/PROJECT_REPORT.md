@@ -237,6 +237,32 @@ Outdated "Pending user approval" text was removed only from q03/q04/q17 review
 notes; their reviewed gold IDs, evidence groups, references, and verified status
 were preserved. The audited retrieval CSV and summary were not rewritten.
 
+### Focused UI redesign
+
+The presentation was redesigned in `app.py`, `ui.css`, and a theme-only
+`.streamlit/config.toml`. It uses an off-white/pine palette, system fonts,
+controlled content width, a branded sidebar, six destination prompts, separate
+user/assistant surfaces, citation badges, and source previews with full-passage
+disclosures. Cited passages appear first in the evidence view while their
+original retrieval rank remains visible. No retrieval order or backend data is
+modified. Native Streamlit chat input provides the pinned composer.
+
+The retrieval, generation, Gemini configuration, embeddings, Chroma data, and
+evaluation modules were unchanged. UI behavior was checked with saved answers
+and mocked resources, including prompt submission, exactly one generation call
+per submitted example, two-message rendering, five source disclosures, and chat
+reset. Browser checks covered the desktop layout and a 390-pixel narrow screen;
+the latter had no horizontal overflow and retained a 16px input. Checked text
+colors meet the 4.5:1 contrast target. No Gemini request or evaluation run was
+performed for the redesign.
+
+Two visual integration issues were corrected: the toolbar styling initially
+hid mobile sidebar access, and the user-bubble margin exceeded the content width.
+Sidebar navigation is retained while deployment/menu chrome is hidden. Styling
+still depends on some Streamlit DOM hooks and native expander/sidebar behavior;
+check it when upgrading Streamlit. The run command is unchanged. Future deployment
+packages must include both new presentation files as well as the app and index.
+
 ## Stage 6: retrieval evaluation
 
 **Implemented.** `evals/questions.json` has 25 reviewed questions: 10 direct, 5 paraphrased,
@@ -346,8 +372,9 @@ and labels also contain source excerpts that require publication review.
 
 **Inspection and package choice.** `.gitignore` excludes `*.pdf`, `data/`, `.env`,
 `.venv`, and `.streamlit/secrets.toml`. The root `requirements.txt` pins all five
-direct dependencies. There is no custom Streamlit configuration; the app uses
-normal defaults and paths relative to `rag.py`. Its runtime needs the Chroma
+direct dependencies. The UI pass adds a theme-only `.streamlit/config.toml` and
+`ui.css`; no custom server configuration is needed. Runtime paths remain relative
+to `rag.py`. Its runtime needs the Chroma
 collection, not the PDF, extraction JSON, or local query cache. No runtime
 ingestion function is called by `app.py`.
 
@@ -388,6 +415,8 @@ environment. They do not claim a successful managed Cloud build, resource-limit
 test, public URL, or hosted Gemini request. No additional service or infrastructure
 was provisioned. Runtime paths and secrets do not require a connection to the
 original PC once the approved files are present on the server.
+The earlier Linux snapshot predates the UI redesign; include the new `ui.css`
+and `.streamlit/config.toml` in a future deployment package.
 
 **Future deployment steps, after approval.** The README documents the exact
 packaging and settings. Use an approved repository, preferably private if the

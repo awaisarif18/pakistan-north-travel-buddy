@@ -86,6 +86,14 @@ buttons, inspect source evidence, or clear the conversation. Ask standalone
 questions with the destination named. History is displayed but is not used to
 rewrite follow-up questions.
 
+The interface uses a light alpine palette, a branded sidebar, six destination
+prompts, distinct message surfaces, page-citation badges, and expandable source
+cards. The composer uses Streamlit's native pinned input. `ui.css` and
+`.streamlit/config.toml` are presentation assets and must ship beside the app.
+No UI framework or external font is required. Narrow-screen layouts keep
+navigation available and stack the suggestions. Some styling targets Streamlit
+DOM hooks, so it should be checked when upgrading the pinned Streamlit version.
+
 Gemini selects evidence IDs for each paragraph. Python validates them and adds
 stored page ranges; the model is not asked to invent page numbers. Missing
 information receives "I couldn't find that information in the PDF." The app
@@ -187,7 +195,8 @@ until that bundle is supplied.
 After explicit publication approval:
 
 1. Use an approved repository, preferably private if the source should stay out
-   of a public Git repository. Include the app, pinned requirements, and full
+   of a public Git repository. Include `app.py`, `rag.py`, `ui.css`,
+   `.streamlit/config.toml`, pinned requirements, and the full
    prebuilt index at `data/chroma/`. Keep `.gitignore` protections; explicitly
    stage only that approved index with `git add -f data/chroma`. Do not include
    `.env`, the original PDF, raw extraction JSON, query caches, or local readiness
@@ -196,8 +205,9 @@ After explicit publication approval:
 2. In Streamlit Community Cloud, choose the approved repository/branch and
    `app.py` as the entrypoint. Select Python 3.12 in Advanced settings to match
    the Linux readiness check. Use the existing root `requirements.txt`; no
-   Docker, `packages.txt`, custom Streamlit config, or database service is needed
-   by the verified local Linux startup.
+   Docker, `packages.txt`, custom server settings, or database service is needed
+   by the verified local Linux startup. The theme-only Streamlit config belongs
+   in the package. The earlier Linux snapshot check predates this UI styling pass.
 3. Put the following root-level TOML keys in Cloud's Secrets field, supplying
    the actual key privately there. Do not commit a `secrets.toml` containing it:
 
