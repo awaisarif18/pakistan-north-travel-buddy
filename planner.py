@@ -155,8 +155,11 @@ def validate_plan(state: TripState):
     if status == "unsupported" and (days or payload["overview"] or payload["guidance"] or not limitations):
         raise ValueError("An unsupported plan must explain its limits without an invented itinerary.")
     local_car = p["transport"] == "Car" and p["departure"].casefold() == p["destination"].casefold()
-    guidance = {item["topic"]: render(item["paragraphs"]) for item in payload["guidance"]
-                if not (local_car and item["topic"] == "Transport")}
+    grouped = {}
+    for item in payload["guidance"]:
+        if not (local_car and item["topic"] == "Transport"):
+            grouped.setdefault(item["topic"], []).extend(item["paragraphs"])
+    guidance = {topic: render(parts) for topic, parts in grouped.items()}
     if local_car and status != "unsupported":
         guidance["Transport"] = ("This static guide does not establish current driving conditions or confirm "
                                  "standard-car suitability for every local leg. Confirm access locally; "

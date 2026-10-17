@@ -46,6 +46,18 @@ See the [release notes](docs/RELEASE_v1.1.0.md),
 [technical report](docs/PROJECT_REPORT.md). The release is on `main`;
 see the deployment section for the current verification status.
 
+### Post-v1.1.0 maintenance
+
+The maintenance pass preserves repeated planner guidance topics instead of
+silently dropping earlier paragraphs. Citations now accompany all retained
+guidance. Focused offline checks passed for conversations, quotas, planner
+validation, and currency display. A clean Linux Python 3.12 runtime loaded all
+49 original vectors without ingestion, the PDF, or `.env`. Synthetic browser
+checks covered desktop and 390px layouts. Fresh hosted answer/planner checks
+remain unverified because the audit browser stays on the loading screen.
+See the [post-release verification record](docs/PROJECT_REPORT.md#post-v110-verification-and-fixes).
+The published `v1.1.0` tag and frozen evaluation results remain unchanged.
+
 ## Live demo and source code
 
 **[Open the live demo](https://pakistan-north-travel-ai.streamlit.app/)** · **[View the source on GitHub](https://github.com/awaisarif18/pakistan-north-travel-buddy)**
@@ -76,8 +88,8 @@ see the deployment section for the current verification status.
 
 Ask about routes, trekking seasons, transport, fuel stops, costs, and facilities.
 For example: "Where should I refuel before traveling to Khunjerab Pass?"
-The live v1.0 demo requires explicit destinations in each question. On this
-v1.1 branch, follow-ups can resolve the current destination from the last four
+The preserved v1.0 release requires explicit destinations in each question. In
+the current v1.1 release, follow-ups can resolve the destination from the last four
 exchanges. Answers still use retrieved PDF evidence rather than conversation
 history as a source.
 
@@ -307,10 +319,12 @@ answer-quality scores have been generated for these 50 questions.
 
 The benchmark is intentionally multi-fact-heavy: 38/40 answerable questions are
 `multi_fact`. Of those, 21 have one required evidence group and 17 have two.
-Keep aggregate CompleteEvidence@5, but also plan a separate multi-passage
+The saved benchmark reports aggregate CompleteEvidence@5 and a separate multi-passage
 result restricted to questions requiring at least two distinct evidence groups.
 One-chunk multi-fact coverage does not demonstrate multi-passage retrieval.
-These subgroup results are planned, not measured; the v1.0 scores above remain unchanged.
+Dense retrieval covers both groups for 16/17 held-out multi-passage questions,
+with group coverage of 33/34. See the [saved benchmark](evals/experiments/hybrid-v11-20261017/summary.md)
+for the full comparison. The v1.0 scores above remain unchanged.
 All 17 two-group cases are held-out after the requested split rebalance. The
 development multi-passage subgroup is empty and should be reported as unavailable.
 
@@ -376,14 +390,17 @@ Set `FEEDBACK_FORM_URL` in `.env` or Streamlit Secrets to configure it.
 Links remain available when AI quota is exhausted. The app adds no prefilled
 prompts, conversation history, trip details, identifiers, email, or keys.
 
-The public form shows Yes/No tester consent with a privacy notice and an
-optional email field in a separate section. Feedback does not require joining
+The public form shows Yes/No tester consent with a privacy notice and a
+separate email section for consenting testers. Feedback does not require joining
 the tester program. Google Forms and its linked Sheet store responses; the app
 has no email database, signup, invitation automation, or LangSmith response
-upload. Owner checks remain: verify automatic email collection/sign-in settings
-and test both Yes/No branches before inviting testers. The form owner intentionally requires a Name field; the application does not
-collect one itself. General feedback does not require an email. This is named
-feedback, not a promise of fully anonymous submissions.
+upload. Read-only owner settings inspection confirmed automatic email collection
+is off and the one-response restriction requires Google sign-in. The owner chose
+to retain that restriction and the required Name field. Yes routes to the email
+section; No routes directly to submission. No form was submitted during QA.
+The email field's optional setting and both completed submission paths still
+need owner verification. General feedback does not require joining the tester
+program; the app itself collects no name or email.
 
 ### Personalized trip outlines on v1.1
 
@@ -535,7 +552,7 @@ describes its native structured output support.
 For this existing workspace, run v1.1 in its separate environment:
 
 ```powershell
-git switch feature/v1.1-langgraph
+git switch main
 python -m venv .venv-v1.1
 .\.venv-v1.1\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv-v1.1\Scripts\python.exe verify_migration.py

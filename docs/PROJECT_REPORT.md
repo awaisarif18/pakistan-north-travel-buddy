@@ -3,17 +3,20 @@
 ## Purpose and evidence
 
 Build a small chatbot that answers from a personal travel PDF, exposes its
-evidence, and measures retrieval quality. The implementation uses direct SDK
-calls and Python functions, without agents, orchestration frameworks, or
-separate database services.
+evidence, and measures retrieval quality. The original v1.0 implementation used
+direct SDK calls and Python functions. The released v1.1 implementation uses
+LangChain and LangGraph, with the same local Chroma index and no separate
+database service or autonomous agents.
 
 This report describes the repository, saved local artifacts, and recorded work
-reviewed on 2026-10-17. Costs, billed token totals, exact historical timings, and
+reviewed across the recorded milestones. Costs, billed token totals, exact historical timings, and
 complete HTTP logs were not recorded. Commands below reproduce the operations;
 they are not a complete terminal transcript.
 
-Stages 1-7 describe the released v1.0 implementation. Stage 8 records the local
-v1.1 framework migration; the deployed application remains on v1.0.
+Stages 1-7 describe the released v1.0 implementation. Stages 8-17 record the
+v1.1 migration, development, deployment, and release. Statements about pending
+work in those stages describe their status at that time. The final maintenance
+section records verification and fixes after the published v1.1.0 baseline.
 
 ## Stage 1: environment setup
 
@@ -2084,3 +2087,124 @@ Chroma storage differences remain unstaged. No application change, document
 embedding, evaluation rerun, new dependency, or Gemini request is part of this
 publication step. Production LangSmith tracing remains disabled and needs no
 LangSmith credential.
+
+## Post-v1.1.0 verification and fixes
+
+### Scope and reproduced defect
+
+This maintenance pass began on 2026-10-18 from `main` at published baseline
+`d15a83fac24c75ccb8228f3874ff3bd918a0f684`. Remote `main` matched. The owner
+approved direct commits to `main`; there is no feature-branch merge in this
+pass. The old feature branch has no unique commits and is four commits behind
+that baseline. Tag `v1.1.0`, its release notes, and historical results are retained.
+
+`planner.validate_plan` previously rendered each guidance entry into a dictionary
+keyed by topic. If a generated response repeated Accommodation, for example,
+the later entry overwrote the earlier text while both source IDs stayed in the
+cited list. A synthetic two-paragraph fixture reproduced the missing first
+paragraph before the fix. The validator now groups paragraphs by topic in
+their original order and renders each topic once. Its output shape, prompts,
+retrieval, and existing transport guards are unchanged.
+
+`verify_planner.guidance_checks` now verifies both retained paragraphs and page
+citations, rejection of invalid source IDs in either entry, suppression of
+local-car Transport prose without dangling cited IDs, and the motorbike
+motorway guard. Existing single-topic cases also passed. This repairs lost
+text; it does not establish factual correctness or real-world route feasibility.
+
+### Executed verification
+
+| Area | New evidence | Result and limits |
+|---|---|---|
+| Repeated guidance | Regression failed before the fix and passed afterward | Both paragraphs and their citations retained in order |
+| Conversations | Existing seven controlled scenarios and Streamlit test rerun | Follow-up, accommodation, cost, destination switch, clear, standalone, and session isolation passed; unsupported refusal and invalid citations also checked |
+| Usage protection | Session, capacity, concurrency, API-boundary, Streamlit, and quota-window helpers | Passed; includes no duplicate rerun calls, clear retaining allowances, zero workflow calls when blocked, friendly 429 handling, and 23/25-hour Pacific days |
+| Planner | Existing graph, quota, and UI checks plus new guidance checks | Passed with fake models; no new live Hunza/Skardu/Kumrat quality claim |
+| Desktop/mobile UI | Actual app in an ignored, API-blocked synthetic preview, at 1528px and 390px | Navigation, composer, long evidence expansion, form, five day cards, and literal currency inspected; document width equaled viewport width, no generated math nodes |
+| Clean runtime | Isolated Linux Python 3.12.3 runtime with committed index and patched planner | Imports, both screens, all three retriever modes, offline BM25 query, and planner initialization passed |
+| Cloud Secrets | Root-level Streamlit Secrets with a placeholder key in the isolated runtime | Environment export passed; no real credentials or `.env` used |
+| Hosted app | Fresh browser tab at the existing URL | Loading screen persisted; no chat/planner request submitted, no crash or successful redeploy inferred |
+| Cold start | New local runtime, no PDF, extraction JSON, eval files, or query cache | 49 vectors loaded; hosted cold restart was not attempted |
+
+The Windows checks used the existing Python 3.13.7 environment. Linux used the
+existing Python 3.12.3 environment and all 12 pinned direct dependencies.
+Real Gemini SDK generation/embedding methods and LangSmith uploads were blocked
+during the offline tests. No dependency, UI/CSS, model, limiter, or retrieval
+implementation change was needed. Raw local logs and the synthetic preview
+are ignored under `data/post-v1.1-qa/`, not deployment dependencies.
+
+The focused planner checks can be repeated without generating answers:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_planner.py
+```
+
+The maintenance run called existing helper functions with API/upload guards
+instead of their historical report-writing entry points. Frozen retrieval
+benchmarks were neither rerun nor tuned. README corrections distinguish the
+released v1.1 application from v1.0 history and link the already measured
+multi-passage results rather than describing them as planned work.
+
+### Index and artifact protection
+
+Only a copy of the committed five-file Chroma snapshot was opened. It contains
+49 vectors with the original IDs, passages, metadata, and embeddings. Its
+logical fingerprint remains
+`394c832e5e8bee68fa9f85fca85d97421081139d29838e162be5fe30e2c21dc6`.
+The embedding model, 3,072 dimensions, retrieval prefixes, dense default,
+v1.0 results, and frozen v1.1 datasets/results remain unchanged.
+
+The working tree already had two dirty Chroma files before this pass. Their
+starting SHA-256 hashes were recorded and compared after verification:
+
+| File within `data/chroma/` | Starting SHA-256 |
+|---|---|
+| `1cc615b6-9f77-44e6-a5ed-717d089c2764/length.bin` | `79b256cc79c6fa527ba6eb24dcbe2416d2b183226c5fe9abb9605e84e11c9078` |
+| `chroma.sqlite3` | `e716be278ef15fb3597f596865c5dfe14cb2f7ebd2443e1651ffb48bbadb74f8` |
+
+Both match their starting state and remain unstaged. They are not reset,
+replaced, or packaged. The maintenance commit excludes all index files.
+
+### Feedback and access
+
+Both UI links resolve to the exact existing Google Forms responder URL with
+`target="_blank"`, without prefilled prompts or identifiers. Read-only owner
+settings inspection during planning confirmed Name is required, automatic
+email collection is off, and Limit to 1 response is enabled. Google sign-in
+is therefore required. The owner explicitly chose to preserve these settings.
+Yes routes to the separate email section; No routes directly to submission.
+The email field's optional checkbox and completed submission paths were not
+freshly verified. No response was submitted or tester record created. The
+form remains unchanged, and feedback is available when AI quotas are exhausted.
+
+### Live budget, remaining checks, and rollout
+
+Actual observed Gemini attempts in this pass are zero generation and zero
+query embeddings; document embeddings and LangSmith uploads are also zero.
+No hosted workflow has been submitted, so its conservative attempt bound is
+also zero so far. Exact provider counts cannot be inferred from a browser
+answer alone. Any later hosted submissions must be reported separately from
+measured local boundary counts, including failed attempts and cache uncertainty.
+
+The approved cap is 10 generation attempts and 16 query-embedding attempts
+across local and hosted checks. The proposed four chat turns and four planner
+requests have a conservative upper bound of nine generations and 16 query
+embeddings under the current one-attempt SDK configuration. The chat sequence
+is Rakaposhi overview/costs, an explicit Skardu switch, a Skardu season follow-up,
+and a fresh-session live-weather refusal. Planner cases are Hunza, local Skardu,
+Kumrat, and an impossible one-day winter trip. Respect existing cooldown,
+session, and process limits; stop on provider 429 or an uncertain in-flight
+request. No retries or quota-exhaustion experiments are authorized by this budget.
+
+Fresh hosted answer quality, route feasibility, trek duration, full outward/
+return schedules, and quota/link/mobile behavior remain pending. Synthetic
+passes and historical screenshots do not substitute for those observations.
+The conservative motorbike text guard may suppress benign motorway mentions;
+the car caveat does not validate each day leg. These are recorded limitations.
+Broader planner feasibility checks remain a future milestone.
+
+Rollout uses an explicit four-file stage, reviewed diff, normal commit and push
+to `main`, then a hosted check. No hosted reboot, secrets/settings change, tag
+move, or new release is part of this pass. If a reproducible hosted regression
+appears, inspect deployment logs and revert the maintenance commit with a
+normal history-preserving `git revert` and push. Do not reset or force-push.

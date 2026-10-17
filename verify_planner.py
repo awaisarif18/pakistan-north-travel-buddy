@@ -96,6 +96,46 @@ def graph_checks():
     assert run_trip(empty, CASES[0]["preferences"])["plan"]["status"] == "unsupported"
 
 
+def guidance_checks():
+    documents = [Document(id=f"fixture-{i}", page_content=f"Synthetic evidence {i}.",
+                         metadata={"source": "synthetic.pdf", "page_start": i, "page_end": i})
+                 for i in (1, 2, 3)]
+    part = lambda text, source: {"text": text, "sources": [source]}
+    state = {"preferences": {**CASES[1]["preferences"], "days": 1}, "documents": documents,
+             "payload": {"status": "partial", "overview": [],
+                         "days": [{"day": 1, "title": "Fixture day",
+                                   "activities": [part("Synthetic activity.", "S3")]}],
+                         "guidance": [
+                             {"topic": "Accommodation", "paragraphs": [part("First lodging detail.", "S1")]},
+                             {"topic": "Accommodation", "paragraphs": [part("Second lodging detail.", "S2")]}],
+                         "limitations": ["Synthetic diagnostic only."]}}
+    plan = validate_plan(state)["plan"]
+    text = plan["guidance"]["Accommodation"]
+    assert text.index("First lodging detail.") < text.index("Second lodging detail.")
+    assert "PDF page 1" in text and "PDF page 2" in text
+    assert set(plan["cited_ids"]) == {"fixture-1", "fixture-2", "fixture-3"}
+    for index in (0, 1):
+        invalid = deepcopy(state)
+        invalid["payload"]["guidance"][index]["paragraphs"][0]["sources"] = ["S99"]
+        try:
+            validate_plan(invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Invalid citation in repeated guidance accepted")
+    transport = deepcopy(state)
+    for item in transport["payload"]["guidance"]:
+        item["topic"] = "Transport"
+    local = validate_plan(transport)["plan"]
+    assert "Confirm access locally" in local["guidance"]["Transport"]
+    assert local["cited_ids"] == ["fixture-3"]  # Suppressed prose must not count as cited.
+    transport["preferences"]["transport"] = "Motorbike"
+    transport["payload"]["guidance"][1]["paragraphs"][0]["text"] = "Ride via M-1."
+    withheld = validate_plan(transport)["plan"]
+    assert not withheld["days"] and "Transport" not in withheld["guidance"]
+    assert not withheld["cited_ids"]
+
+
 def quota_checks():
     graph, queries, calls, _ = fixtures()
     clock = [10000.0]
@@ -182,7 +222,7 @@ def ui_checks():
 def main():
     results = {}
     with tracing_context(enabled=False):
-        for check in [graph_checks, quota_checks, ui_checks]:
+        for check in [graph_checks, guidance_checks, quota_checks, ui_checks]:
             check()
             results[check.__name__] = "pass"
     folder = rag.DATA_DIR / "planner-checks"
