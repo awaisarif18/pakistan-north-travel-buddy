@@ -2103,8 +2103,9 @@ keyed by topic. If a generated response repeated Accommodation, for example,
 the later entry overwrote the earlier text while both source IDs stayed in the
 cited list. A synthetic two-paragraph fixture reproduced the missing first
 paragraph before the fix. The validator now groups paragraphs by topic in
-their original order and renders each topic once. Its output shape, prompts,
-retrieval, and existing transport guards are unchanged.
+their original order and renders each topic once. Its output shape, retrieval,
+and existing transport guards are unchanged. A later targeted prompt correction
+addresses wording observed during the hosted checks, as recorded below.
 
 `verify_planner.guidance_checks` now verifies both retained paragraphs and page
 citations, rejection of invalid source IDs in either entry, suppression of
@@ -2123,7 +2124,8 @@ text; it does not establish factual correctness or real-world route feasibility.
 | Desktop/mobile UI | Actual app in an ignored, API-blocked synthetic preview, at 1528px and 390px | Navigation, composer, long evidence expansion, form, five day cards, and literal currency inspected; document width equaled viewport width, no generated math nodes |
 | Clean runtime | Isolated Linux Python 3.12.3 runtime with committed index and patched planner | Imports, both screens, all three retriever modes, offline BM25 query, and planner initialization passed |
 | Cloud Secrets | Root-level Streamlit Secrets with a placeholder key in the isolated runtime | Environment export passed; no real credentials or `.env` used |
-| Hosted app | Fresh browser tab at the existing URL | Loading screen persisted; no chat/planner request submitted, no crash or successful redeploy inferred |
+| Hosted app | Existing working tab and fresh app-frame sessions | Four chat turns and four planner workflows completed; detailed observations below |
+| Hosted narrow layout | DOM measurement after a 390px viewport override | Browser zoom produced an actual 434px CSS viewport with equal document width; screenshot capture timed out, so full hosted 390px visual verification remains pending |
 | Cold start | New local runtime, no PDF, extraction JSON, eval files, or query cache | 49 vectors loaded; hosted cold restart was not attempted |
 
 The Windows checks used the existing Python 3.13.7 environment. Linux used the
@@ -2177,34 +2179,86 @@ The email field's optional checkbox and completed submission paths were not
 freshly verified. No response was submitted or tester record created. The
 form remains unchanged, and feedback is available when AI quotas are exhausted.
 
-### Live budget, remaining checks, and rollout
+### Hosted observations and targeted wording correction
 
-Actual observed Gemini attempts in this pass are zero generation and zero
-query embeddings; document embeddings and LangSmith uploads are also zero.
-No hosted workflow has been submitted, so its conservative attempt bound is
-also zero so far. Exact provider counts cannot be inferred from a browser
-answer alone. Any later hosted submissions must be reported separately from
-measured local boundary counts, including failed attempts and cache uncertainty.
+Commit `f5f69d3` pushed the guidance fix, regression test, and documentation to
+`main`. The commit contains no index or evaluation changes. Fresh outer-page
+tabs initially stayed on the loading screen. The owner confirmed normal startup,
+and an existing empty app tab then became accessible. Subsequent fresh sessions
+used the app-frame URL observed in that page. This was a browser-access problem,
+not evidence of a server crash. Cloud logs showed update events but no commit
+SHA, so those logs alone do not establish which version was executing.
 
-The approved cap is 10 generation attempts and 16 query-embedding attempts
-across local and hosted checks. The proposed four chat turns and four planner
-requests have a conservative upper bound of nine generations and 16 query
-embeddings under the current one-attempt SDK configuration. The chat sequence
-is Rakaposhi overview/costs, an explicit Skardu switch, a Skardu season follow-up,
-and a fresh-session live-weather refusal. Planner cases are Hunza, local Skardu,
-Kumrat, and an impossible one-day winter trip. Respect existing cooldown,
-session, and process limits; stop on provider 429 or an uncertain in-flight
-request. No retries or quota-exhaustion experiments are authorized by this budget.
+| Controlled hosted check | Actual observation | Assessment |
+|---|---|---|
+| Rakaposhi overview, trek duration, and guide-estimated costs | Two days up, one down; $15/day camp package, PKR 3,000/night gear, US$1,000+ guided package; PDF pages 20-22 | Matches `p020-022-8d8b2710273b`; currency displayed literally and source expander showed five passages |
+| Explicit switch to Skardu | Answer moved to Skardu travel, lodging, sights, and nearby valleys | Topic switch worked; core transport/lodging statements match pages 37-39 |
+| "What's the best season?" | Answer used Skardu-region seasonal examples, not Rakaposhi | Context retained; examples match pages 39-42, but it did not give one overall regional season |
+| Fresh-session exact weather request | "I couldn't find that information in the PDF"; zero cited passages | Appropriate live-data refusal |
+| Clear conversation and reruns | Messages disappeared; chat allowance stayed at 0/3. Navigation/evidence actions did not decrement allowances | Consistent with local duplicate-prevention tests; hosted provider call counts are not exposed |
+| Gilgit-Hunza, five days, Motorbike, Budget, July, Nature/Trekking | Partial plan with separate outward/return riding, two ascent days and one descent day, lodging/camp/fuel guidance | Useful source-supported outline; no guarantee of real-world feasibility |
+| Local Skardu, three days, Car, Mid-range, August, Sightseeing/Culture | City/fort, Kachura lakes, and Satpara sightseeing; local driving caveat; no committed Deosai/4x4 excursion or Islamabad approach | Transport scope appropriate. Season prose overstated clear conditions and road accessibility |
+| Islamabad-Kumrat, six days, Motorbike, Mid-range, July, Nature/Sightseeing/Trekking/Culture | Partial guidance with no overview/day schedule/Transport; explicit unverified motorway-access limitation | Motorbike guard applied. Season prose also described routes as accessible without qualification |
+| Islamabad-Hunza, one day, Motorbike, Budget, January, Nature | Partial response with no day schedule and explicit duration/winter/access limitations | Did not fabricate a feasible itinerary. One limitation could read as a current motorway prohibition, beyond what the PDF establishes |
+| Feedback with quotas used | Both exact responder links and `_blank` targets remained in the hosted DOM at 0/3 chats and 0/1 plans | No prefilled data; no form submitted |
 
-Fresh hosted answer quality, route feasibility, trek duration, full outward/
-return schedules, and quota/link/mobile behavior remain pending. Synthetic
-passes and historical screenshots do not substitute for those observations.
-The conservative motorbike text guard may suppress benign motorway mentions;
-the car caveat does not validate each day leg. These are recorded limitations.
-Broader planner feasibility checks remain a future milestone.
+The repeated seasonal overstatement justified a small prompt correction in
+`planner.py`. It now asks for evidence-based seasonal descriptions attributed
+to the guide, explicit local weather/access confirmation, and no inference of
+clear weather or accessible/open/safe routes from a recommended month. The
+motorbike instruction also forbids asserting a current legal prohibition,
+including in limitations. No road rule or replacement route was invented.
 
-Rollout uses an explicit four-file stage, reviewed diff, normal commit and push
-to `main`, then a hosted check. No hosted reboot, secrets/settings change, tag
-move, or new release is part of this pass. If a reproducible hosted regression
-appears, inspect deployment logs and revert the maintenance commit with a
-normal history-preserving `git revert` and push. Do not reset or force-push.
+One focused local Skardu generation reused nine passages from the saved
+`release-transport` development check. Their IDs, full text, and metadata were
+matched against the existing chunks before use. Retrieval was replaced only in
+this ignored test harness with the saved evidence; production retrieval did not
+change. An SDK-boundary counter measured exactly one generation attempt.
+Embedding calls and LangSmith uploads were blocked and remained zero.
+
+The result retained a partial local car plan, valid stored citations, lodging
+estimates, and the driving caveat. Its Season text became: "August falls within
+the summer season, but current weather and access need local confirmation."
+Generation took 3.514 seconds; the controlled workflow took 4.161 seconds.
+This addresses the observed weather/access promise in that sample. It is not
+a universal grounding score: the general summer label is not an explicit
+seasonal recommendation on its cited pages 37-39. The final prompt was not
+retested on the hosted app or on a real motorbike generation within this budget.
+Final planner graph/guidance/quota/UI checks and isolated Linux startup passed
+again with real API calls blocked.
+
+### API accounting and remaining limits
+
+The approved combined cap was 10 generation attempts and 16 query-embedding
+attempts. All eight hosted workflows completed without a displayed provider
+429. No automatic retry or quota-exhaustion experiment was run.
+
+| Scope | Measured attempts | Conservative upper bound |
+|---|---|---|
+| Offline mocks, browser preview, and Linux startup | 0 generation, 0 embeddings, 0 uploads | 0 / 0 |
+| Hosted four chat turns | Provider attempts not observable; four workflow results observed | 5 generation / 4 query embeddings, including the follow-up rewrite |
+| Hosted four planner requests | Provider attempts not observable; four workflow results observed | 4 generation / 12 query embeddings |
+| Focused local Skardu recheck | 1 generation, 0 embeddings, 0 uploads | 1 / 0 |
+| Combined | One measured local generation plus unobserved hosted attempts | At most 10 generation / 16 query embeddings |
+
+These bounds include possible embedding cache misses and use the reviewed
+one-attempt SDK configuration. They are not claimed as measured provider
+consumption. Session indicators counted accepted submissions once. An early
+form click dismissed an open interest menu; unchanged allowance, no spinner,
+and no result showed no observed admission before the actual submission.
+No document embeddings were generated, and production tracing stayed disabled.
+The budget is closed; no further Gemini calls were made in this pass.
+
+Remaining verification limits are full hosted 390px visual capture, a hosted
+cold restart, exact server-side vector count, final-prompt hosted output, and
+the form submission/email-checkbox paths described above. The clean local
+runtime still establishes 49 unchanged vectors without ingestion. Citation
+validity does not establish every claim's support, historical truth, current
+access, or practical feasibility. The conservative motorbike guard can withhold
+benign mentions; broader route validation remains a future milestone.
+
+Rollout uses explicit staging of the intended files, reviewed diffs, and normal
+commits/pushes to `main`. No hosted reboot, secrets/settings change, tag move,
+or new release is part of this pass. If a reproducible regression appears,
+inspect deployment logs and use a normal history-preserving `git revert` of
+the relevant maintenance commit followed by push. Do not reset or force-push.

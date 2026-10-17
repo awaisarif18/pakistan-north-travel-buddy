@@ -53,8 +53,12 @@ silently dropping earlier paragraphs. Citations now accompany all retained
 guidance. Focused offline checks passed for conversations, quotas, planner
 validation, and currency display. A clean Linux Python 3.12 runtime loaded all
 49 original vectors without ingestion, the PDF, or `.env`. Synthetic browser
-checks covered desktop and 390px layouts. Fresh hosted answer/planner checks
-remain unverified because the audit browser stays on the loading screen.
+checks covered desktop and 390px layouts. Eight hosted workflows exercised
+supported chat, destination switching, follow-ups, refusal, and four trip cases.
+The review found overly confident seasonal-access wording; a small prompt
+correction passed one focused real-model Skardu check using saved evidence.
+Its final wording has not been retested on the hosted app. Hosted 390px visual
+capture and a hosted cold restart remain unverified.
 See the [post-release verification record](docs/PROJECT_REPORT.md#post-v110-verification-and-fixes).
 The published `v1.1.0` tag and frozen evaluation results remain unchanged.
 
