@@ -198,6 +198,45 @@ embeddings; the weather query added one query embedding. These checks are not
 a generation-accuracy or general refusal benchmark. The source warning is shown
 in the UI even when a generated paragraph uses present tense.
 
+### Final answer quality: manual source review
+
+After the independent retrieval audit, ten selected responses were reviewed
+directly against the original PDF and cited chunk metadata. Five answerable
+questions cover fuel guidance, Skardu fares, Ratti Gali trekking, Chitrali food,
+and a multi-fact Skardu bus/Deosai closure question. All five existing negative
+questions q21-q25 are included. The full answers, citations, provenance, and
+per-case review notes are in `evals/answer_quality.md`.
+
+Eight new answers used the existing `generate_answer` pipeline and configured
+`gemini-3.8-flash` model. Matching saved answers for q01 and q21 were reused
+instead of regenerating them. Supported questions reused their audited top-five
+passages; four newly tested negative questions used normal chatbot retrieval,
+adding four query vectors. No retrieval evaluation was rerun, no document
+embedding was regenerated, and no additional LLM judge or framework was used.
+
+| Manual-review observation | Actual result |
+|---|---|
+| Answerable factual consistency with PDF | 5/5 pass |
+| Answerable completeness for requested facts | 5/5 pass |
+| Answerable citation support | 5/5 pass |
+| Appropriate refusal of q21-q25 | 5/5 pass |
+| Observed failures | 0 |
+
+Source checks used physical PDF pages 7, 11, 38, 40, 64, 80-81, and the unresolved
+Monday Lake entry on 48-49. The fare answer qualified prices as estimates; the
+multi-fact answer included both bus information and the November-May closure.
+The Ratti Gali answer used the correct evidence despite its rank-three retrieval.
+All negative answers used the fixed "I couldn't find that information in the PDF"
+message and supplied no fabricated citations. Page citations match stored ranges
+but can be broader than the exact sentence location.
+
+These are assistant-led source-consistency observations, not independent human
+sign-off or a general quality guarantee. There were no repeated stochastic or
+adversarial tests. The model prompt and working RAG components were left unchanged.
+Outdated "Pending user approval" text was removed only from q03/q04/q17 review
+notes; their reviewed gold IDs, evidence groups, references, and verified status
+were preserved. The audited retrieval CSV and summary were not rewritten.
+
 ## Stage 6: retrieval evaluation
 
 **Implemented.** `evals/questions.json` has 25 reviewed questions: 10 direct, 5 paraphrased,
@@ -298,13 +337,76 @@ missing groups, the top-five cutoff, and shared supporting chunks.
 
 ## Stage 7: deployment
 
-**Pending.** No publication, Streamlit Community Cloud deployment, or live URL
-has been created. The local PDF, index, caches, and saved passages are ignored
-by Git. Reviewed evaluation evidence also contains source excerpts; no publication
-action has been authorized or performed for this milestone.
+**Readiness checked; publication and deployment pending.** No repository push,
+Streamlit Community Cloud deployment, or live URL was created. The PDF, complete
+database, caches, and local readiness artifacts remain ignored by Git. The index
+contains document text and vectors; omitting the original PDF does not remove
+the need for explicit approval before publishing it. Existing evaluation reports
+and labels also contain source excerpts that require publication review.
 
-Label review and baseline retrieval evaluation are complete. Deployment remains
-pending. Next, approve which artifacts may be published, prepare the bundled
-fixed index, check that it opens on the deployment
-platform, configure the key through Streamlit secrets, and verify the live app.
-Cloud portability and live availability have not been tested.
+**Inspection and package choice.** `.gitignore` excludes `*.pdf`, `data/`, `.env`,
+`.venv`, and `.streamlit/secrets.toml`. The root `requirements.txt` pins all five
+direct dependencies. There is no custom Streamlit configuration; the app uses
+normal defaults and paths relative to `rag.py`. Its runtime needs the Chroma
+collection, not the PDF, extraction JSON, or local query cache. No runtime
+ingestion function is called by `app.py`.
+
+The simplest bundle is the complete existing `data/chroma/`: five files totaling
+3,229,860 bytes, including `chroma.sqlite3` and the UUID-named binary-index
+directory. Copying only the SQLite file is not the verified packaging method.
+A local-only archive of a clean Git checkout snapshot plus that full directory
+was prepared under ignored `data/readiness/checkout-with-index.zip`, 1,077,241
+bytes. It includes no real `.env`, PDF, extraction JSON, or query cache. This
+is a readiness artifact, not a published release or a change to Git exclusions.
+
+**Actual Linux checks.** An existing Ubuntu WSL environment was used with an
+isolated Python 3.12.3 environment. Its standard venv initially lacked pip;
+pip was bootstrapped from the existing bundled pip wheel inside that temporary
+environment, without installing system packages or altering the working Windows
+environment. The existing pinned requirements installed successfully on Linux:
+PyMuPDF 1.28.2, ChromaDB 1.5.9, google-genai 1.75.0, Streamlit 1.66.0, and
+python-dotenv 1.2.4. No version changes were needed.
+
+The archive was extracted to a new Linux checkout directory. Checks confirmed:
+
+- The copied collection opened with 49 vectors of 3,072 dimensions.
+- Querying with an existing stored vector returned its own chunk, confirming
+  the Windows-created binary index was usable in this Linux check. This was
+  an index portability check, not a rerun of retrieval evaluation.
+- Streamlit's initial app render passed using the copied index, without the
+  source PDF, chunk JSON, `.env`, or query cache.
+- A placeholder-only root `GEMINI_API_KEY` in a local test `secrets.toml` reached
+  `os.environ` through Streamlit's normal secrets parsing and satisfied the
+  existing client configuration. No real key was copied into the bundle.
+- Readiness startup made zero embedding or generation API calls and did not
+  invoke ingestion or rebuild the document database. Only the copied index
+  was opened. The source collection was left unchanged.
+
+The machine-readable local check outcome is `data/readiness/linux_result.json`.
+These results establish Linux startup and package compatibility in the tested
+environment. They do not claim a successful managed Cloud build, resource-limit
+test, public URL, or hosted Gemini request. No additional service or infrastructure
+was provisioned. Runtime paths and secrets do not require a connection to the
+original PC once the approved files are present on the server.
+
+**Future deployment steps, after approval.** The README documents the exact
+packaging and settings. Use an approved repository, preferably private if the
+source should not be public. Explicitly add only the approved full index at
+`data/chroma/`, preserving all other ignore rules. A plain current checkout
+without the ignored index cannot run; the successful clean-checkout test included
+the index explicitly. Configure `app.py`, Python 3.12, and the existing root
+requirements in Community Cloud. Set root-level `GEMINI_API_KEY`,
+`GEMINI_CHAT_MODEL`, and `GEMINI_EMBEDDING_MODEL` in the private Secrets UI.
+Do not commit secret values, ship the original PDF unnecessarily, run ingestion
+on startup, or deploy a database server. The app deliberately displays retrieved
+passages, so source-content visibility also needs approval when sharing the demo.
+
+After an authorized deployment, verify a cited answer, a refusal, and a restart
+using the bundled index. Query caching is disposable on the Cloud filesystem;
+the bundled document index remains the source of truth. Docker, CI/CD,
+`packages.txt`, and additional hosted storage are not required by these checks.
+
+Streamlit's official documentation describes [Python selection and deployment](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy),
+[Linux dependencies](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies),
+and [private secrets](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
+All publication and hosted verification remain pending explicit approval.

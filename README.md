@@ -95,6 +95,18 @@ Three live Streamlit checks passed: Khunjerab refueling, Islamabad-Skardu
 transport, and refusal of tomorrow's Hunza weather. Source evidence and chat reset
 were checked. These are smoke checks, not a generation accuracy benchmark.
 
+## Answer quality review
+
+The [manual answer review](evals/answer_quality.md) records ten actual responses,
+page citations, source checks, and review statuses. Five supported questions,
+including a multi-fact bus/Deosai question, passed checks for factual consistency,
+completeness, and citation support against the original PDF. All five negative
+questions q21-q25 appropriately refused unsupported information without citations.
+Eight answers were generated for this review; matching earlier outputs for q01
+and q21 were reused to avoid duplicate calls. No additional LLM judge was used.
+These selected examples do not establish general answer accuracy or refusal
+reliability. The audited retrieval results were not rerun or changed.
+
 ## Retrieval evaluations
 
 The [reviewed dataset](evals/questions.json) has 25 questions: 10 direct,
@@ -145,14 +157,67 @@ The five earlier smoke queries are not formal scores.
   identify the retrieved range rather than an exact sentence location.
 - Lower-ranked passages can be irrelevant. Valid source IDs alone do not prove
   that every generated claim is supported.
-- The small reviewed dataset is not a held-out benchmark. Refusal behavior has
-  limited smoke coverage; approval of unanswerable labels does not verify refusals.
+- The small reviewed dataset is not a held-out benchmark. The five dataset
+  negatives refused appropriately in the answer review, with one response per
+  case; broader and adversarial refusal behavior has not been evaluated.
 - Local query caching and session chat are intended for a demo, not concurrent
   production use. Generation requires Gemini API access.
 
 Deployment and a public demo URL are pending. No publication or Streamlit Cloud
 deployment has started. Approval is required before publishing the source PDF,
-index, or excerpts. Cross-platform loading of a bundled index still needs checking.
+index, or excerpts.
+
+## Deployment readiness and future process
+
+The pinned requirements installed successfully in an isolated Ubuntu/Linux
+Python 3.12.3 environment. A clean Git checkout snapshot plus the copied Windows
+Chroma index opened all 49 vectors, passed a self-vector lookup, and rendered
+the app with no source PDF, extracted chunk JSON, `.env`, or query cache. A
+placeholder root-level Streamlit secret was promoted to the environment and
+read by the existing app. No ingestion or Gemini API call was needed for this
+readiness check. This verifies local Linux startup, not an actual hosted build.
+
+The simplest package is the entire existing `data/chroma/` directory, about
+3.23 MB, including `chroma.sqlite3` and its UUID-named binary-index directory.
+Do not copy only the SQLite file. The index itself contains extracted document
+text and embeddings, so it needs publication approval even when the PDF is omitted.
+An ordinary current checkout lacks the ignored index and cannot start the app
+until that bundle is supplied.
+
+After explicit publication approval:
+
+1. Use an approved repository, preferably private if the source should stay out
+   of a public Git repository. Include the app, pinned requirements, and full
+   prebuilt index at `data/chroma/`. Keep `.gitignore` protections; explicitly
+   stage only that approved index with `git add -f data/chroma`. Do not include
+   `.env`, the original PDF, raw extraction JSON, query caches, or local readiness
+   artifacts. Evaluation reports also contain source excerpts and need review
+   before repository publication.
+2. In Streamlit Community Cloud, choose the approved repository/branch and
+   `app.py` as the entrypoint. Select Python 3.12 in Advanced settings to match
+   the Linux readiness check. Use the existing root `requirements.txt`; no
+   Docker, `packages.txt`, custom Streamlit config, or database service is needed
+   by the verified local Linux startup.
+3. Put the following root-level TOML keys in Cloud's Secrets field, supplying
+   the actual key privately there. Do not commit a `secrets.toml` containing it:
+
+   ```toml
+   GEMINI_API_KEY = "your-private-key"
+   GEMINI_CHAT_MODEL = "gemini-3.8-flash"
+   GEMINI_EMBEDDING_MODEL = "gemini-embedding-2"
+   ```
+
+4. Deploy only after approval, then check one cited answer, one refusal, and a
+   restart without ingestion. Cloud runs the Python app, index, and Gemini calls;
+   it does not connect to this PC. The local query cache is disposable and can
+   disappear on redeploy without affecting the bundled document vectors.
+
+Cloud deployment and the live URL are still unverified. The deployment UI's
+[Python selection](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy),
+[Linux dependency handling](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies),
+and [private secrets settings](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management)
+are documented by Streamlit. The local readiness archive remains under ignored
+`data/readiness/`; nothing has been published or staged for publication.
 
 See [the project report](docs/PROJECT_REPORT.md) for the implementation process,
 recorded results, design choices, and remaining work.

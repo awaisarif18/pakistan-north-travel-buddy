@@ -79,7 +79,7 @@
         "quote_type": "normalized_table_text"
       }
     ],
-    "review_notes": "The PDF page 11 transport table was normalized into pipe-separated text at ingestion; its facts match the PDF but this is not a verbatim prose quote. Pending user approval."
+    "review_notes": "The PDF page 11 transport table was normalized into pipe-separated text at ingestion; its facts match the PDF but this is not a verbatim prose quote."
   },
   {
     "id": "q04",
@@ -113,7 +113,7 @@
         "quote_type": "source_excerpt"
       }
     ],
-    "review_notes": "Additional valid supporting evidence exists in the practical reference seasonal-closures section on PDF page 10. Gold IDs updated to include it. Pending user approval."
+    "review_notes": "Additional valid supporting evidence exists in the practical reference seasonal-closures section on PDF page 10. Gold IDs updated to include it."
   },
   {
     "id": "q05",
@@ -494,7 +494,7 @@
         "quote_type": "source_excerpt"
       }
     ],
-    "review_notes": "Additional valid supporting evidence exists in the practical reference seasonal-closures section on PDF page 10. Gold IDs updated to include it. Pending user approval. The PDF page 11 transport table was normalized into pipe-separated text at ingestion; its facts match the PDF but this is not a verbatim prose quote. Pending user approval. For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
+    "review_notes": "Additional valid supporting evidence exists in the practical reference seasonal-closures section on PDF page 10. Gold IDs updated to include it. The PDF page 11 transport table was normalized into pipe-separated text at ingestion; its facts match the PDF but this is not a verbatim prose quote. For complete multi-fact coverage, at least one retrieved chunk from EACH required_evidence_group must be present in the top five.",
     "required_evidence_groups": [
       [
         "p037-039-63413879f3c2",
