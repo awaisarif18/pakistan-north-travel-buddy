@@ -4,6 +4,47 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
+**v1.1 development branch:** `feature/v1.1-langgraph` migrates the local chatbot
+to LangChain and LangGraph, with session-scoped conversational memory. The live demo, `main`, and tag `v1.0.0`
+remain on the stable v1.0 implementation. This migration has not been deployed.
+
+## What's New in v1.1.0
+
+The v1.1 release candidate adds LangChain model/retrieval interfaces and a typed
+LangGraph conversation workflow with session memory and conditional follow-up
+rewriting. Gemini 3.5 Flash Lite handles rewriting, answers, and trip outlines;
+Gemini Embedding 2 and all 49 original Chroma vectors remain unchanged.
+
+- Optional development-only LangSmith traces and reviewed 10-question development / 40-question held-out datasets.
+- Dense, BM25, and hybrid RRF retrieval, with saved rankings and a frozen comparison. Dense remains the benchmark-selected default.
+- Shared generation/embedding safeguards, rolling session quotas, DST-aware Pacific days, and friendly capacity messages. These counters are volatile and bypassable, not durable per-user enforcement.
+- Existing Google Forms feedback and tester-consent links, plus a source-cited personalized trip planner with partial-plan handling.
+
+| Held-out method | Hit@1 | Hit@5 | MRR@10 | CompleteEvidence@5 | Median retrieval ms |
+|---|---:|---:|---:|---:|---:|
+| Dense | 0.9375 | 1.0000 | 0.9688 | 0.9677 | 58.655 |
+| BM25 | 0.8750 | 1.0000 | 0.9323 | 0.9355 | 0.839 |
+| Hybrid RRF | 0.9375 | 1.0000 | 0.9635 | 0.9677 | 58.479 |
+
+The harder benchmark has 32 answerable held-out questions and 31 eligible
+CompleteEvidence cases. Development scores tied across all methods; dense won
+the predeclared tie-break before held-out execution. Small samples, saturated
+Hit@5, and one-pass cached latency do not establish broad superiority. Detailed
+[methods, failures, and experiment links](evals/experiments/hybrid-v11-20261017/summary.md)
+remain separate from the preserved v1.0 results.
+
+The planner's final audit narrows local-car transport guidance to an explicit
+road-access limitation instead of unverified suitability claims. Day cards
+retain source-based estimates. Broader route feasibility still needs human
+review; citations validate references, not every claim. Next priorities are
+independent varied evaluation cases, stronger feasibility checks, and durable
+account-based quotas if the demo grows. Those features are not implemented.
+
+See the [prepared release notes](docs/RELEASE_v1.1.0.md),
+[planner review](evals/trip_planner_review.md), and
+[technical report](docs/PROJECT_REPORT.md). This branch is a release candidate;
+`main` and the live v1.0 deployment remain unchanged until approval.
+
 ## Live demo and source code
 
 **[Open the live demo](https://pakistan-north-travel-ai.streamlit.app/)** · **[View the source on GitHub](https://github.com/awaisarif18/pakistan-north-travel-buddy)**
@@ -24,17 +65,20 @@ The application retrieves information from a 92-page Northern Pakistan travel gu
 
 - Processes the 92-page guide with PyMuPDF into 49 text chunks with physical PDF page metadata.
 - Uses Gemini Embedding 2 at 3,072 dimensions and persistent ChromaDB cosine search to retrieve the top five passages.
-- Generates concise answers with Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
+- Generates concise answers with Gemini 3.5 Flash Lite on v1.1. The deployed v1.0 still uses Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
 - Exposes retrieved passages in expandable source cards and refuses questions unsupported by the supplied evidence.
 - Provides a responsive Streamlit chat interface with six example prompts, conversation display, and a reset option.
+- On v1.1, adds a source-grounded trip planner and sidebar links for feedback and optional future testing.
 - Caches query embeddings to avoid repeat embedding calls for identical questions and configuration.
 - Includes a reviewed 25-question retrieval dataset, three retrieval metrics, and a separate recorded answer-quality review.
 - Runs publicly on Streamlit Community Cloud using a bundled prebuilt index, without ingestion at startup.
 
 Ask about routes, trekking seasons, transport, fuel stops, costs, and facilities.
 For example: "Where should I refuel before traveling to Khunjerab Pass?"
-Name the destination in each question. Conversation history is displayed but is
-not passed into retrieval or answer generation as conversational memory.
+The live v1.0 demo requires explicit destinations in each question. On this
+v1.1 branch, follow-ups can resolve the current destination from the last four
+exchanges. Answers still use retrieved PDF evidence rather than conversation
+history as a source.
 
 ## RAG architecture
 
@@ -43,12 +87,18 @@ flowchart LR
     P[92-page PDF] --> X[PyMuPDF extraction and chunking]
     X --> E[Gemini document embeddings, once]
     E --> C[(Persistent ChromaDB: 49 vectors)]
-    Q[User question] --> QE[Cached Gemini query embedding]
+    Q[User question] --> PQ[Prepare question]
+    PQ --> F{Ambiguous follow-up?}
+    F -->|No| QE[Verified cached Gemini query embedding adapter]
+    F -->|Yes| W[Rewrite using four recent exchanges]
+    H[Session-owned in-memory graph state] --> W
+    W --> QE
     QE --> C
     C --> R[Top five passages]
-    R --> G[Gemini answer with source IDs]
-    G --> V[Python validates IDs and adds PDF citations]
+    R --> G[LangChain prompt and structured Gemini answer]
+    G --> V[Validate source IDs and add PDF citations]
     V --> UI[Streamlit answer and source evidence]
+    V --> H
 ```
 
 Chunks contain approximately 400-697 estimated tokens, with paragraph overlap
@@ -60,6 +110,67 @@ The model selects source IDs rather than inventing page numbers. The application
 validates those IDs and appends page ranges from the retrieved metadata. This
 checks citation references, not the truth of every generated statement.
 
+`workflow.py` compiles typed state into this LangGraph workflow:
+`START → prepare_question → optional rewrite_question → retrieve_evidence → generate_grounded_answer → validate_citations → END`.
+Retrieval uses LangChain `Document` objects and a similarity retriever over the
+existing Chroma collection. The embedding adapter delegates to v1.0's exact
+query-prefix, dimension, cache-key, and cache-write implementation in `rag.py`.
+It blocks document embedding. The original retrieval, ingestion, and evaluator remain the migration reference;
+only the default text-generation model in `rag.py` now uses Flash Lite. There are no agents, tools, or loops.
+Each Streamlit session owns an `InMemorySaver`, graph, and random thread ID.
+Completed graph turns are the sole chat-history source. Reruns read state;
+they do not replay prior questions. New conversation replaces the graph and
+thread, and server/session loss clears memory. Only stateless clients are cached
+across sessions. The original question stays visible, while retrieval and
+generation use the resolved standalone query. Generation receives no history.
+
+Run the small controlled memory checks, with no Gemini calls:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+# Optional: upload synthetic development traces, never public-user conversations.
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py --trace
+```
+
+See the [conversation review](evals/conversation_review.md) for seven scenario
+results, live Gemini spot checks, citation checks, and limitations. This does
+not run the approved held-out benchmark or change historical retrieval scores.
+
+### Dense, keyword, and hybrid modes
+
+The v1.1 graph accepts any of three LangChain retrievers. Dense retains the
+original Chroma/Gemini path. BM25 builds an in-memory keyword index directly
+from Chroma's stored passages, so it needs neither the PDF nor `chunks.json`.
+Hybrid fuses the top 20 dense and BM25 candidates using equal-weight Reciprocal
+Rank Fusion, `score(id) = sum(1 / (60 + rank))`, deduplicated by existing chunk
+ID. BM25 uses `rank-bm25==0.2.2`, standard parameters, case-folded alphanumeric
+tokens, no stemming or stopword removal, and excludes nonpositive matches.
+Fusion ties are broken by chunk ID. Neither method changes source metadata.
+
+Set `RETRIEVAL_MODE=dense`, `bm25`, or `hybrid` in `.env` or Streamlit Secrets
+to select the app mode before startup. Dense remains the default, selected on
+development results before freezing the held-out comparison. No neural
+reranker or separate database is used. The graph and citation validation are
+shared across all three modes; the existing UI is preserved.
+
+The [hybrid benchmark report](evals/experiments/hybrid-v11-20261017/summary.md)
+contains measured scores, latency, experiment links, paired regressions, and
+the frozen settings. Its new exports preserve all historical evaluation files.
+
+| Held-out method | Hit@1 | Hit@5 | MRR@10 | CompleteEvidence@5 | Multi-passage complete@5 |
+|---|---:|---:|---:|---:|---:|
+| Dense | 0.9375 | 1.0000 | 0.9688 | 0.9677 | 0.9412, 16/17 |
+| BM25 | 0.8750 | 1.0000 | 0.9323 | 0.9355 | 0.8824, 15/17 |
+| Hybrid RRF | 0.9375 | 1.0000 | 0.9635 | 0.9677 | 0.9412, 16/17 |
+
+Hit/MRR use 32 answerable cases; CompleteEvidence uses 31 with required groups.
+Mean group coverage on the 17 two-group cases was 0.9706 for dense/hybrid
+and 0.9412 for BM25. Warm-cache median retrieval latency was 58.655 ms,
+0.839 ms, and 58.479 ms respectively, from one local sample per query/method.
+All methods tied on development accuracy; dense was selected and settings
+frozen before the one final held-out comparison. No post-test tuning occurred.
+The small single-PDF set cannot establish a confident configuration winner.
+
 ## Technology stack
 
 | Component | Technology |
@@ -68,16 +179,34 @@ checks citation references, not the truth of every generated statement.
 | PDF extraction | PyMuPDF 1.28.2 |
 | Embeddings | `gemini-embedding-2`, 3,072 dimensions |
 | Vector storage | ChromaDB 1.5.9, persistent cosine index |
-| Answer generation | `gemini-3.8-flash` |
-| Gemini client | Official `google-genai` SDK 1.75.0 |
+| Text generation on v1.1 | `gemini-3.5-flash-lite`, shared by rewriting and answers |
+| Gemini client | Official `google-genai` SDK 2.20.0 on this branch; v1.0 retains 1.75.0 |
+| LangChain interfaces | langchain-core 1.6.12 |
+| Gemini integration | langchain-google-genai 4.4.2 |
+| Chroma integration | langchain-chroma 1.1.0 |
+| Workflow | langgraph 1.2.16 |
+| Transitive tracing dependency | langsmith 0.14.11; optional tracing through environment settings |
 | Interface | Streamlit 1.66.0, custom CSS, native chat components |
 | Local configuration | python-dotenv 1.2.4 |
 | Hosting | GitHub and Streamlit Community Cloud |
 
-The implementation uses direct SDK calls and simple Python functions, without
-LangChain, agents, a separate database server, or additional UI frameworks.
+The development branch uses LangChain Core and provider integrations directly.
+The top-level `langchain` agent package is unnecessary for this workflow and is
+not installed. The Gemini integration requires the SDK upgrade; the separate
+local v1.1 virtual environment preserves the working v1.0 environment.
+
+Optional LangSmith tracing reads `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and
+`LANGSMITH_PROJECT` from your private environment. The template defaults to
+`LANGSMITH_TRACING=false`; development commands require an explicit `--trace`
+or `--langsmith` flag to upload traces/results. Streamlit calls the workflow
+with tracing forced off, even if the environment flag is true. Keep real
+tracing keys private, like the Gemini key. No tracing configuration was
+deployed to the live v1.0 app.
 
 ## Evaluation methodology and results
+
+The following audited v1.0 results and original evaluation files are preserved.
+Migration parity is recorded separately below; these scores were not overwritten.
 
 The curated dataset contains 10 direct factual questions, five paraphrased
 questions, five multi-fact questions, and five unanswerable questions. Gold
@@ -138,7 +267,290 @@ Review the evidence and methodology:
 - [Recorded answer-quality review](evals/answer_quality.md)
 - [Full development process and technical report](docs/PROJECT_REPORT.md)
 
+### v1.1 migration verification
+
+All 25 verified questions matched the v1.0 top-ten ordering, chunk text, page
+metadata, and cosine distances exactly. Maximum distance difference was `0.0`.
+The 20 archived answerable-question rankings also matched, and top-five
+retriever results matched each baseline prefix. The collection still contains
+49 vectors. The deployed index files, original backend, labels, and evaluation
+reports remain unchanged. See [per-question parity results](evals/v1_1_parity.csv).
+
+Four fresh LangChain/LangGraph answer checks covered q01, q17, q21, and q25.
+The two supported answers matched the PDF, including multi-fact evidence for
+Skardu transport and Deosai closure; both unsupported questions refused without
+citations. These selected checks do not replace the original ten-answer review.
+Graph order, invalid citation rejection, cached embedding request formatting,
+and Streamlit startup/submit/reset passed focused checks. No document embeddings
+or real query embeddings were generated during verification.
+
+### LangSmith tracing and the approved v1.1 datasets
+
+The private LangSmith dataset `pakistan-north-v1-verified-25` contains the existing
+25 verified references. [Its local JSONL export](evals/langsmith_baseline.jsonl)
+retains labels, answers, gold IDs/pages, and excerpts. Importing it did not run
+retrieval or recalculate the historical scores.
+
+The [50-question reviewed benchmark](evals/questions_v1_1.json) has 40 answerable and
+10 unanswerable questions. Review it in the [expandable gold-evidence sheet](evals/review_v1_1.md).
+Development has 8 answerable + 2 unanswerable questions; held-out has 32 + 8.
+All 50 labels are `verified` after independent review and explicit user approval.
+The private LangSmith datasets `north-tours-v1-1-dev` and
+`north-tours-v1-1-heldout` contain 10 and 40 examples respectively. Remote
+inputs, reference outputs, metadata, and split membership match the approved
+local dataset. Gold chunk IDs are disjoint between splits,
+but all questions still use the same PDF and share topics with the old benchmark.
+Neither import nor evaluation accepts unverified labels. The retrieval-only
+comparison is recorded in the hybrid benchmark report above. No new
+answer-quality scores have been generated for these 50 questions.
+
+The benchmark is intentionally multi-fact-heavy: 38/40 answerable questions are
+`multi_fact`. Of those, 21 have one required evidence group and 17 have two.
+Keep aggregate CompleteEvidence@5, but also plan a separate multi-passage
+result restricted to questions requiring at least two distinct evidence groups.
+One-chunk multi-fact coverage does not demonstrate multi-passage retrieval.
+These subgroup results are planned, not measured; the v1.0 scores above remain unchanged.
+All 17 two-group cases are held-out after the requested split rebalance. The
+development multi-passage subgroup is empty and should be reported as unavailable.
+
+Development commands use the existing `.env` without printing credentials:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py prepare
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset baseline
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset harder --split dev
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset harder --split held_out
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py ask --trace --question "What does the guide say about Patundas access?"
+```
+
+`prepare` is local-only. Upload is idempotent and refuses mismatched remote
+references instead of overwriting them. `ask --trace` explicitly sends that
+development question, retrieved passages, and generated answer to the configured
+LangSmith project; it is not used by the public chat interface. Missing tracing
+credentials cause a clear configuration error.
+
+For a separately authorized future run, these commands evaluate the development
+split locally or create a LangSmith experiment with the same local exports.
+Synchronization did not run either benchmark:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py evaluate --dataset harder --split dev --allow-query-embeddings
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py evaluate --dataset harder --split dev --langsmith --allow-query-embeddings
+```
+
+`--split held_out` explicitly selects the held-out cases. Keep them out of
+tuning until development decisions are frozen. `--answers` additionally opts
+into one generation request per question, including negative cases. Without
+it, negatives are unscored and do not trigger retrieval. Cached query vectors
+are reused; `--allow-query-embeddings` explicitly allows missing query vectors,
+never document re-embedding. No LLM judge is implemented or automatically run.
+
+Code-based evaluators report Hit@1, Hit@5, MRR@10 and CompleteEvidence@5 for
+eligible verified positives. CompleteEvidence@5 uses reviewed evidence groups;
+unanswerable cases are excluded. Any run error withholds aggregate scores.
+Answer mode adds structural citation validity and strict fixed-refusal checks.
+Answer correctness and groundedness remain unscored until manual PDF review;
+valid citation syntax alone is not evidence of semantic support.
+
+In [LangSmith](https://smith.langchain.com/), open **Tracing** and select your
+`LANGSMITH_PROJECT` to inspect node, retriever, and model spans. A synthetic trace
+named `synthetic-dev-trace-no-gemini` was verified with a mocked Gemini response.
+For future experiments, open **Datasets & Experiments**, choose the dataset and
+experiment, and inspect per-example scores, actual outputs, references, and traces.
+Experiment prefixes default to `v11-<dataset>-<split>-dense-k10-<UTC timestamp>` and record
+commit/model/source metadata. CSV and Markdown exports go to
+`evals/experiments/<experiment-name>/`; they never overwrite the original files.
+LangSmith may append a unique suffix to the experiment prefix; local exports use the prefix.
+Manual correctness/groundedness fields and reviewer notes are left blank for review.
+See Stage 9 of the [project report](docs/PROJECT_REPORT.md) for formulas, API usage,
+privacy checks, and limitations.
+
 ## Local installation and usage
+
+### Feedback and early testers on v1.1
+
+**Send Feedback** and **Help Test Future Releases** in the sidebar open the
+same [existing Google Form](https://forms.gle/5McdABdSnigwwdNz5) in a new tab.
+Set `FEEDBACK_FORM_URL` in `.env` or future Streamlit Secrets to configure it.
+Links remain available when AI quota is exhausted. The app adds no prefilled
+prompts, conversation history, trip details, identifiers, email, or keys.
+
+The public form shows Yes/No tester consent with a privacy notice and an
+optional email field in a separate section. Feedback does not require joining
+the tester program. Google Forms and its linked Sheet store responses; the app
+has no email database, signup, invitation automation, or LangSmith response
+upload. Owner checks remain: verify automatic email collection/sign-in settings
+and test both Yes/No branches before inviting testers. The form owner intentionally requires a Name field; the application does not
+collect one itself. General feedback does not require an email. This is named
+feedback, not a promise of fully anonymous submissions.
+
+### Personalized trip outlines on v1.1
+
+Choose **Plan a Trip** in the sidebar. Enter departure city, region, 1-10 total
+travel days, Motorbike/Car/Public Transport, budget style, interests, and an
+optional month. Travel days include outward and return journeys. Results show
+an overview, day cards, transport/stay/budget/season/safety guidance, missing
+information, and expandable PDF evidence. A partial plan is expected when the
+guide cannot establish all details. Daily groupings are suggestions, not
+confirmed driving schedules, bookings, current prices, or road-opening guarantees.
+
+```mermaid
+flowchart LR
+    A[Validate preferences] --> B[Prepare three information needs]
+    B --> C[Dense retrieval from existing Chroma]
+    C --> D[One structured Flash Lite itinerary]
+    D --> E[Validate day numbers and source IDs]
+    E --> F[Render itinerary and PDF evidence]
+```
+
+Dense was selected in the approved development benchmark. The planner makes
+three deterministic searches for route/safety, attractions/stays/costs, and
+seasonal restrictions. It interleaves the three top-five lists, deduplicates
+original IDs, and caps context at 12 passages. Chat retrieval modes and their
+rankings are unchanged. The planner needs neither the PDF nor chunks.json at
+runtime and never ingests documents.
+
+The existing limiter admits the request before retrieval/generation. One
+planner submission consumes the separate one-plan/hour session allowance and
+reserves at most one shared generation plus three embedding calls. Actual cache
+misses and generation attempts count at the existing boundaries. Reruns render
+the saved session output without regenerating it; other sessions have their own
+form/output and quotas. No planner conversation history or user database is added.
+
+[Planner development review](evals/trip_planner_review.md) records Hunza motorbike,
+Skardu sightseeing, and an unrealistic one-day winter trip. Seven real generation
+attempts and nine query embeddings were used, including two prompt corrections
+for observed over-refusal, vehicle mismatch, and trek compression. Final records
+contain useful partial outlines and an appropriate no-itinerary explanation for
+the unrealistic trip. All source IDs validate. These few cases do not establish
+broad route feasibility. The release audit replaces broad local-car transport
+prose with a clear current-access limitation. The report retains failed drafts
+and links to development traces.
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_planner.py
+```
+
+The real-review script `review_planner.py --trace` is opt-in, uses only controlled
+cases in [trip_cases.json](evals/trip_cases.json), and refuses to overwrite saved
+outputs. It can consume API quota. Production chat and planner calls explicitly
+disable tracing. No held-out benchmark or LLM judge is part of planner testing.
+
+### Flash Lite generation and anonymous usage safeguards on v1.1
+
+The public v1.0 deployment is unchanged. This branch uses
+`gemini-3.5-flash-lite` as its only configured text-generation model, through
+`GEMINI_CHAT_MODEL`. Rewriting and final answers use that same model and one
+shared generation-call budget. The trip planner uses that same model and
+budget. Gemini
+Embedding 2 and the existing 49 document vectors remain unchanged.
+
+The user verified these Free Tier project limits. Application defaults leave
+headroom and count invocation attempts, including failures, rather than messages:
+
+| Model / role | Provider RPM / input TPM / RPD | App calls/minute / Pacific day | App estimated input tokens/minute |
+|---|---|---|---|
+| `gemini-3.5-flash-lite`, all text generation | 15 / 250,000 / 500 | 10 / 300 shared | 150,000 |
+| `gemini-embedding-2`, cache misses | 100 / 30,000 / 1,000 | 30 / 300 separate | 20,000 |
+
+Each browser session gets 3 chat requests and 1 trip plan per rolling
+60 minutes, with a 12-second cooldown and 700-character input limit. Reruns do
+not double-charge. New conversation preserves usage. A cached singleton allows
+2 concurrent workflows and 3 workflow starts per rolling minute. The workflow
+ceiling is separate from the actual generation-call budget. Admission reserves
+one generation call for a standalone answer, two when conditional rewriting is
+needed, and at most one embedding miss. Unused reservations are released;
+actual attempts remain counted. Denied admissions run no graph or Gemini calls.
+
+Daily counters use `America/Los_Angeles`, including DST. Minute/session windows
+use monotonic time. A reservation survives midnight; each invocation is charged
+to the day it starts. Conservative UTF-8 payload byte estimates plus fixed
+prompt/schema headroom bound local input-token use without a countTokens API
+call. These estimates are not exact provider token measurements. SDK calls make
+one attempt; provider 429s return a friendly message with a 60-second process
+backoff, without promising when Google will restore quota.
+
+Configure `.env`, or top-level Streamlit Secrets for a future deployment, and
+restart the process. `.env.example` contains the current names and defaults:
+
+| Variable | Default |
+|---|---|
+| `GEMINI_CHAT_MODEL` | `gemini-3.5-flash-lite`, all text generation |
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-2`, unchanged |
+| `CHAT_REQUESTS_PER_WINDOW` / `TRIP_REQUESTS_PER_WINDOW` | 3 / 1 |
+| `USAGE_WINDOW_SECONDS` / `SUBMISSION_COOLDOWN_SECONDS` | 3600 / 12 |
+| `MAX_QUESTION_CHARS` / `MAX_CONCURRENT_WORKFLOWS` | 700 / 2 |
+| `WORKFLOWS_PER_MINUTE` | 3 |
+| `GENERATION_API_CALLS_PER_MINUTE` / `GENERATION_API_CALLS_PER_DAY` | 10 / 300 |
+| `GENERATION_INPUT_TOKENS_PER_MINUTE` | 150000 |
+| `EMBEDDING_API_CALLS_PER_MINUTE` / `EMBEDDING_API_CALLS_PER_DAY` | 30 / 300 |
+| `EMBEDDING_INPUT_TOKENS_PER_MINUTE` | 20000 |
+| `PROVIDER_BACKOFF_SECONDS` | 60 |
+
+For existing local installations, change `GEMINI_CHAT_MODEL` in `.env` to
+`gemini-3.5-flash-lite`. The separate `GEMINI_REWRITE_MODEL`, `CHAT_API_*`,
+`REWRITE_API_*`, and their old input-token variables are retired. Remove those
+old settings and use the unified `GENERATION_*` variables above. There is no
+separate planner model setting or automatic fallback to Gemini 3.8 Flash.
+The workspace `.env` has been updated without changing credentials.
+
+Dense/hybrid standalone chat makes at most one generation and one uncached
+query-embedding call. A follow-up adds one generation for rewriting, so it
+consumes up to two calls from the same Flash Lite bucket. Cache hits remove
+the embedding call; BM25 needs none. Empty evidence skips answer generation.
+The last four exchanges provide bounded rewrite context, while final answers
+still use retrieved PDF evidence and validated source IDs. `trip_plan` admission
+reserves one generation and at most three embedding calls. Cached embeddings
+reduce the actual cost; there is no planner rewrite or generation repair loop.
+
+The [Flash Lite smoke review](evals/answer_quality_flash_lite.md) records three
+real answers using the same saved evidence as the earlier 3.8 review. Both
+supported answers passed source/citation checks; the live-weather request was
+refused. Fuel advice was shorter, with optional details omitted; the multi-fact
+answer retained the same substantive facts. This small sample does not prove
+model equivalence. Historical evaluation files and scores are unchanged.
+
+Run the focused mocked usage and conversation checks:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_usage.py
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+```
+
+Anonymous limits can be bypassed by browser reload or a new session. All
+process counters reset on restart and are independent across processes,
+replicas, other apps, and developer CLI tools. They cannot guarantee
+project-wide RPM, TPM, or RPD enforcement. No IP addresses or fingerprints are
+collected. Keep production tracing disabled. Stronger enforcement later needs
+trusted account IDs, durable shared atomic counters, and measured planner
+budgets. Authentication and durable storage are not implemented.
+
+Review actual usage in [Google AI Studio](https://aistudio.google.com/rate-limit).
+The [rate-limit guide](https://ai.google.dev/gemini-api/docs/rate-limits)
+explains model-specific project limits and Pacific daily resets.
+[Flash Lite documentation](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
+describes its native structured output support.
+
+For this existing workspace, run v1.1 in its separate environment:
+
+```powershell
+git switch feature/v1.1-langgraph
+python -m venv .venv-v1.1
+.\.venv-v1.1\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv-v1.1\Scripts\python.exe verify_migration.py
+.\.venv-v1.1\Scripts\python.exe -m streamlit run app.py
+```
+
+Keep an existing `.venv-v1.1` rather than recreating it. This local environment
+is excluded through `.git/info/exclude`. `verify_migration.py` requires the
+existing local `data/query_embeddings.json` cache for all 25 questions and fails
+before making embedding requests if any entry is missing. It tests a copied
+index, never the deployed snapshot. Optional `--live` generates at most four
+answers and reuses saved migration outputs when code/model/question match;
+it makes no new calls on a matching rerun. Manual answer review is still needed.
+
+General setup for a fresh checkout follows. The live `main` branch still has
+v1.0's requirements; install the requirements from whichever branch you run.
 
 The complete index is included in the repository. The source PDF and extraction
 files are not needed to run the chatbot. Python 3.12 matches the deployment
@@ -174,7 +586,7 @@ Configure `.env` privately:
 
 ```dotenv
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_CHAT_MODEL=gemini-3.8-flash
+GEMINI_CHAT_MODEL=gemini-3.5-flash-lite
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
@@ -243,7 +655,7 @@ Configure the following root-level keys privately in Streamlit Cloud Secrets:
 
 ```toml
 GEMINI_API_KEY = "your-private-key"
-GEMINI_CHAT_MODEL = "gemini-3.8-flash"
+GEMINI_CHAT_MODEL = "gemini-3.5-flash-lite"
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-2"
 ```
 
@@ -265,7 +677,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - The static guide may contain outdated or incorrect travel information. The app does not verify current prices, weather, schedules, availability, or road conditions, and does not book hotels or transport.
 - Some chunks span destinations or page boundaries. Citations identify stored page ranges rather than exact sentences, and valid source IDs alone do not prove every claim is supported.
 - Lower-ranked passages can be irrelevant. The small curated evaluation set includes earlier smoke questions and related facts, so its scores should not be generalized to all questions.
-- Conversation history is display-only. Ask standalone questions with explicit destinations; conversational memory, hybrid retrieval, and reranking are not implemented.
+- The live v1.0 demo has display-only history. This v1.1 branch uses volatile conversational memory with four-exchange rewrite context; heuristic follow-up detection can miss unusual wording. Name the destination when resolution is unclear. Hybrid retrieval is available on the branch; neural reranking is not implemented.
 - Query caching and session storage are designed for a demo, not concurrent production workloads. Gemini access and quota are required; Cloud restarts may clear caches and sessions.
 - Some CSS uses Streamlit DOM hooks and should be checked when upgrading Streamlit. A hosted cold restart and broad adversarial refusal testing have not been independently verified.
 
@@ -274,7 +686,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - Add unseen questions across more regions and expand the manual answer/refusal review.
 - Investigate q07's lower-ranked evidence before considering changes to retrieval.
 - Refine exact-page citations or chunk boundaries if new evaluation failures justify it.
-- Consider conversational follow-up support, hybrid search, or reranking only when measured needs justify the added complexity.
+- Expand conversation and retrieval benchmark coverage before tuning further. Consider reranking only when measured needs justify the added complexity.
 
 The [project report](docs/PROJECT_REPORT.md) preserves the development stages,
 recorded problems and solutions, evaluation methodology, and deployment evidence.

@@ -1,0 +1,20 @@
+[
+  {
+    "method": "dense",
+    "name": "hybrid-v11-20261017-dev-dense-d03d560d",
+    "url": "https://smith.langchain.com/o/4d91b86f-05f1-485a-8951-e7f155770270/datasets/4ebe7bdf-7581-4fa5-bf0b-d266e2e326c5/compare?selectedSessions=e8c86f88-7688-42b0-8539-0d79c28c06c8",
+    "startup_ms": 590.1518999999098
+  },
+  {
+    "method": "bm25",
+    "name": "hybrid-v11-20261017-dev-bm25-457e1763",
+    "url": "https://smith.langchain.com/o/4d91b86f-05f1-485a-8951-e7f155770270/datasets/4ebe7bdf-7581-4fa5-bf0b-d266e2e326c5/compare?selectedSessions=5e5a7a8d-1df4-4b50-87a9-be1fb0ddbb2f",
+    "startup_ms": 31.06889999980922
+  },
+  {
+    "method": "hybrid",
+    "name": "hybrid-v11-20261017-dev-hybrid-aca320a7",
+    "url": "https://smith.langchain.com/o/4d91b86f-05f1-485a-8951-e7f155770270/datasets/4ebe7bdf-7581-4fa5-bf0b-d266e2e326c5/compare?selectedSessions=de84f89c-f313-4340-a67c-0c0a61fd07f7",
+    "startup_ms": 615.5632999998488
+  }
+]

@@ -1,18 +1,23 @@
-"""Run with: streamlit run app.py. Presentation only; RAG lives in rag.py."""
+"""Run with: streamlit run app.py. Presentation only; RAG runs in workflow.py."""
 
 from html import escape
 from pathlib import Path
+import os
 import re
+from uuid import uuid4
 
 import streamlit as st
-from google.genai import errors
+from langgraph.checkpoint.memory import InMemorySaver
 
-from rag import TRAVEL_NOTICE, generate_answer, gemini_client, open_collection, page_label, retrieve
+from rag import TRAVEL_NOTICE, page_label
+from workflow import build_workflow, chat_model, needs_rewrite, open_retriever, run_question
+from usage_limits import Policy, ProcessLimiter, UsageLimitError, is_rate_limit, new_usage, PROVIDER_BUSY
 
 st.set_page_config(page_title="Pakistan North Tours AI", page_icon="🏔️", layout="wide")
 st.html(f"<style>{Path(__file__).with_name('ui.css').read_text(encoding='utf-8')}</style>")
 
 MOUNTAIN = '<span class="mountain-icon" aria-hidden="true"><i></i><b></b></span>'
+FEEDBACK_URL = os.getenv("FEEDBACK_FORM_URL", "").strip() or "https://forms.gle/5McdABdSnigwwdNz5"
 EXAMPLES = [
     ("Khunjerab fuel stops", "local_gas_station", "Where should I refuel before traveling to Khunjerab Pass?"),
     ("Rakaposhi trekking season", "hiking", "What is the best season for Rakaposhi Base Camp?"),
@@ -26,7 +31,26 @@ CITATION = r"\[(PDF pages? \d+(?:-\d+)?(?:; PDF pages? \d+(?:-\d+)?)*)\]"
 
 @st.cache_resource
 def resources():
-    return open_collection(), gemini_client()
+    # Only stateless clients are shared; each session owns its graph/checkpointer.
+    return open_retriever(mode=os.getenv("RETRIEVAL_MODE", "dense")), chat_model(), chat_model(rewrite=True)
+
+
+@st.cache_resource
+def shared_limiter():
+    return ProcessLimiter(Policy.from_env())
+
+
+def queue_question():
+    st.session_state.pending_submission = {"id": str(uuid4()), "text": st.session_state.chat_question}
+
+
+try:
+    limiter = shared_limiter()
+except (ValueError, TypeError):
+    st.error("The travel assistant is temporarily unavailable. Please try again later.")
+    st.stop()
+if "usage" not in st.session_state:
+    st.session_state.usage = new_usage()
 
 
 def show_answer(message):
@@ -86,54 +110,72 @@ def empty_state():
     return None
 
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 with st.sidebar:
     st.html(f'<div class="sidebar-brand"><div class="brand-mark">{MOUNTAIN}</div>'
             '<div><strong>North Tours</strong><span>Your Pakistan travel companion</span></div></div>')
+    view = st.radio("Explore", ["Chat", "Plan a Trip"], key="app_view", label_visibility="collapsed")
     if st.button("New conversation", icon=":material/edit_square:", key="clear_chat", use_container_width=True):
-        st.session_state.messages = []
+        st.session_state.pop("conversation", None)
+        st.session_state.pop("pending_submission", None)
         st.rerun()
+    st.caption(f"{limiter.remaining(st.session_state.usage)} of {limiter.policy.chat_requests} chat questions remaining in this session window.")
     st.html('<div class="sidebar-section"><p class="eyebrow">The guide</p>'
             '<h2>A little closer to the north.</h2><p>From Hunza’s trails to the valleys of Kalash. '
             'Explore at your own pace, with the guide beside you.</p></div>'
             '<div class="sidebar-facts"><span>92 pages</span><span>8 regions</span><span>PDF sources</span></div>')
     with st.expander("About this companion", icon=":material/info:"):
         st.write("Answers come from your Pakistan North Tours guide. Open the source evidence beneath an answer to read the passages behind it.")
-        st.caption("Name the destination in each question. Earlier messages are shown for reference; follow-up questions are not automatically linked.")
+        st.caption("Ask follow-up questions about your current destination. Context uses the last four exchanges and resets with a new conversation.")
+        st.link_button("Help Test Future Releases", FEEDBACK_URL, icon=":material/science:", use_container_width=True)
+        st.caption("Volunteer through the form. Only opt in and provide an email if you want future testing invitations.")
+    st.link_button("Send Feedback", FEEDBACK_URL, icon=":material/rate_review:", use_container_width=True)
+    st.caption("Opens Google Forms. Your chat and trip details are not sent automatically.")
     st.html('<p class="sidebar-note">For thoughtful planning.<br>Always check local conditions before you go.</p>')
 
 st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'
         '<span class="workspace-tag"><i></i> Your guide to the north</span></header>')
+if view == "Plan a Trip":
+    from planner_ui import show_planner
+    show_planner(limiter, show_answer)
+    st.stop()
 try:
-    collection, client = resources()
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = (str(uuid4()), build_workflow(*resources(), checkpointer=InMemorySaver()))
+    thread_id, workflow = st.session_state.conversation
+    turns = workflow.get_state({"configurable": {"thread_id": thread_id}}).values.get("turns", [])
 except Exception:
     st.error("The guide could not be opened. Check the local index and Gemini configuration, then reload the app.")
     st.stop()
 
-example = empty_state() if not st.session_state.messages else None
-if st.session_state.messages:
+example = empty_state() if not turns else None
+if turns:
     st.html('<div class="conversation-heading"><h1>A little guidance, wherever you go.</h1>'
             '<p>Answers from the guide. Sources within reach.</p></div>')
 with st.container(key="conversation"):
-    for index, message in enumerate(st.session_state.messages):
-        show_message(message, index)
+    for index, turn in enumerate(turns):
+        show_message({"role": "user", "text": turn["question"]}, f"{index}_user")
+        show_message({"role": "assistant", **turn["answer"], "matches": turn["matches"]}, f"{index}_assistant")
 
 with st.container(key="travel_note"):
     st.caption(TRAVEL_NOTICE)
-question = st.chat_input("Ask about your next trip…") or example
-if question:
-    show_message({"role": "user", "text": question}, "pending")
+st.chat_input("Ask about your next trip…", key="chat_question", on_submit=queue_question,
+              max_chars=limiter.policy.question_chars)
+if example:
+    st.session_state.pending_submission = {"id": str(uuid4()), "text": example}
+submission = st.session_state.pop("pending_submission", None)
+if submission:
     try:
-        with st.container(key="chat_assistant_pending"):
-            with st.chat_message("assistant", avatar=":material/landscape:"):
-                with st.spinner("Searching the guide…"):
-                    matches = retrieve(collection, client, question)
-                    answer = generate_answer(client, question, matches)
-        message = {"role": "assistant", **answer, "matches": matches}
-        st.session_state.messages.extend([{"role": "user", "text": question}, message])
+        budget = {"generation": 1, "embedding": 0 if os.getenv("RETRIEVAL_MODE", "dense") == "bm25" else 1}
+        if needs_rewrite({"question": submission["text"], "turns": turns}):
+            budget["generation"] += 1
+        with limiter.workflow(st.session_state.usage, "chat", submission["id"], submission["text"], api_budget=budget):
+            show_message({"role": "user", "text": submission["text"]}, "pending")
+            with st.container(key="chat_assistant_pending"):
+                with st.chat_message("assistant", avatar=":material/landscape:"):
+                    with st.spinner("Searching the guide…"):
+                        run_question(workflow, submission["text"], thread_id=thread_id, trace=False)
         st.rerun()
-    except errors.APIError as error:
-        st.error(f"The guide couldn't answer just now. Gemini returned status {error.code}; check quota or model access and try again.")
-    except Exception:
-        st.error("The answer could not be completed. Check your connection and configuration, then try again.")
+    except UsageLimitError as error:
+        st.info(str(error))
+    except Exception as error:
+        st.error(PROVIDER_BUSY if is_rate_limit(error) else "The answer could not be completed. Please try again later.")

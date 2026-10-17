@@ -1,0 +1,17 @@
+[
+  {
+    "id": "trip01",
+    "preferences": {"departure": "Gilgit", "destination": "Hunza", "days": 5, "transport": "Motorbike", "budget": "Budget", "interests": ["Nature", "Trekking"], "month": "July"},
+    "manual_checks": "Relevant Hunza activities, motorbike access/fuel, supported stays and seasonal caveats. Missing timings/costs should be explicit; partial is acceptable."
+  },
+  {
+    "id": "trip02",
+    "preferences": {"departure": "Skardu", "destination": "Skardu", "days": 3, "transport": "Car", "budget": "Mid-range", "interests": ["Sightseeing", "Culture"], "month": "August"},
+    "manual_checks": "Local sightseeing rather than a long expedition; source-supported transport, stays and attractions. No live bookings or invented daily totals."
+  },
+  {
+    "id": "trip03",
+    "preferences": {"departure": "Islamabad", "destination": "Hunza", "days": 1, "transport": "Motorbike", "budget": "Budget", "interests": ["Nature"], "month": "January"},
+    "manual_checks": "Do not present a feasible one-day round trip. Explain time/season/evidence limits; partial or unsupported output with no forced itinerary is acceptable."
+  }
+]

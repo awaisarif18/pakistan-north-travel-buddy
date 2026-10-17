@@ -19,7 +19,7 @@ COLLECTION_NAME = "north_tours"
 DIMENSIONS = 3072
 load_dotenv(ROOT / ".env")
 EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2").strip()
-CHAT_MODEL = os.getenv("GEMINI_CHAT_MODEL", "gemini-3.8-flash").strip()
+CHAT_MODEL = os.getenv("GEMINI_CHAT_MODEL", "gemini-3.5-flash-lite").strip()
 TRAVEL_NOTICE = "Prices, schedules, and travel conditions in this guide may have changed. Confirm before traveling."
 NOT_FOUND = "I couldn't find that information in the PDF."
 INDEX_CONFIG = {
