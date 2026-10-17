@@ -37,7 +37,7 @@ for the chatbot/evaluation milestone. Secrets are read from `.env`, never printe
 unresolved environment issue remained. Git ignores the environment, secrets,
 PDF, and `data/` artifacts. GitHub publication was not performed by this work.
 
-Current structure:
+Structure during the initial implementation milestone:
 
 ```text
 app.py                     Streamlit chat UI
@@ -361,20 +361,29 @@ The metric implementation rejects missing/invalid evidence groups rather than
 reporting a vacuous perfect score. Small in-memory checks covered alternatives,
 missing groups, the top-five cutoff, and shared supporting chunks.
 
-## Stage 7: deployment
+## Stage 7: Deployment and v1.0 Release
 
-**Readiness checked; index publication approved; deployment pending.** Source code and
-evaluation reports are already public in the existing
-[awaisarif18/pakistan-north-travel-buddy repository](https://github.com/awaisarif18/pakistan-north-travel-buddy).
-The initial readiness preparation made no commit or push and created no Streamlit
-Community Cloud deployment or live URL. The user subsequently explicitly approved
-publishing the complete index to this existing public repository. The deployment
-commit adds that index as an explicit exception to the existing `data/` ignore
-rule. The PDF, caches, extraction files, and local readiness artifacts remain
-excluded. The index
-contains document text and vectors; omitting the original PDF does not remove
-the need for explicit approval before publishing it. Repository visibility
-will remain public. The demo URL stays pending until hosted verification.
+**Deployed MVP.** The user deployed the application to Streamlit Community
+Cloud after the approved index publication commit `418310c` was pushed to
+`main`. The public repository and live application are:
+
+- Repository: [awaisarif18/pakistan-north-travel-buddy](https://github.com/awaisarif18/pakistan-north-travel-buddy).
+- Live application: [Pakistan North Tours AI](https://pakistan-north-travel-ai.streamlit.app/).
+- Deployment entrypoint: `app.py`; Python runtime configuration: 3.12.
+
+The user supplied the live URL and an actual application screenshot at
+`assets/demo.png`. The final portfolio pass uses that screenshot unchanged.
+The exact hosted Python patch version and a hosted cold restart have not been
+independently verified. The recorded Linux compatibility environment below
+was Python 3.12.3. The v1.0 portfolio update changes documentation and adds the
+existing screenshot only; a Git tag and GitHub release require separate approval.
+
+The initial readiness work below preceded publication. Explicit approval was
+obtained because the complete index contains extracted PDF passages and
+embeddings. The approved snapshot was committed to the existing public
+repository, without changing visibility. The wider `data/` ignore rule remains;
+the tracked index is an explicit exception. The original PDF, extraction JSON,
+caches, virtual environment, and real secret files remain excluded.
 
 **Inspection and package choice.** `.gitignore` excludes `*.pdf`, `data/`, `.env`,
 `.venv`, and `.streamlit/secrets.toml`. The root `requirements.txt` pins all five
@@ -424,12 +433,12 @@ original PC once the approved files are present on the server.
 The earlier Linux snapshot predates the UI redesign. A subsequent clean-copy
 startup check below includes the current `ui.css` and `.streamlit/config.toml`.
 
-**Current repository and snapshot inspection.** Local `main` and remote `main`
+**Pre-publication repository and snapshot inspection.** Local `main` and remote `main`
 both pointed to `d735d7c57f143d99b6931eb09e1b8231e4c3bf12`. Origin is
 `https://github.com/awaisarif18/pakistan-north-travel-buddy.git`. The working tree
-was clean and nothing was staged before preparation. Only this report and the
-README need changes; runtime code, models, dependency pins, theme, and ignore
-rules are preserved.
+was clean and nothing was staged before preparation. Only the report and README
+needed changes in that preparation; runtime code, models, dependency pins,
+theme, and ignore rules were preserved.
 
 The index opens with exactly 49 vectors and matches the existing embedding
 configuration: `gemini-embedding-2`, 3,072 dimensions, `search-result-v1`.
@@ -460,39 +469,95 @@ Local check details and file hashes are saved under ignored
 The 16 tracked files and five index files were scanned for the configured API
 key and common credential signatures, with no findings. The PDF, extraction
 files, query cache, readiness artifacts, virtual environment, and secret files
-are excluded from the publication proposal. No files were staged. Existing
-retrieval scores remain Hit@5 1.0000, MRR@10 0.9667, and CompleteEvidence@5
+were excluded from the publication proposal. No files had been staged at that
+inspection. Existing retrieval scores remain Hit@5 1.0000, MRR@10 0.9667, and CompleteEvidence@5
 1.0000; no retrieval evaluation or Gemini request was repeated.
 
-**Deployment steps, after approval.** The README documents the publication
-commands and settings. Use the existing public repository
-`awaisarif18/pakistan-north-travel-buddy`, branch `main`. Explicitly add only the approved full index at
-`data/chroma/`, preserving all other ignore rules. A plain current checkout
-without the ignored index cannot run; the successful clean-checkout test included
-the index explicitly. Configure `app.py`, Python 3.12, and the existing root
-requirements in Community Cloud. Set root-level `GEMINI_API_KEY`,
-`GEMINI_CHAT_MODEL`, and `GEMINI_EMBEDDING_MODEL` in the private Secrets UI.
-Do not commit secret values, ship the original PDF unnecessarily, run ingestion
-on startup, or deploy a database server. The app deliberately displays retrieved
-passages, so source-content visibility also needs approval when sharing the demo.
+**Publication and deployed architecture.** After explicit approval, only the
+five inspected index files and two documentation files were staged, checked,
+committed, and pushed to `origin main` in `418310c`. The index totals 3,229,860
+bytes and contains all 49 vectors. Repository-relative runtime paths do not
+require the PDF or extraction artifacts. The user then imported the repository
+into Streamlit Community Cloud and supplied the live URL above.
 
-After an authorized deployment, verify a cited answer, a refusal, and a restart
-using the bundled index, then record the verified live URL in the README.
-Query caching is disposable on the Cloud filesystem;
-the bundled document index remains the source of truth. Docker, CI/CD,
-`packages.txt`, and additional hosted storage are not required by these checks.
+```mermaid
+flowchart LR
+    GH[Public GitHub repository, main] --> SC[Streamlit Community Cloud, app.py]
+    SC --> C[(Prebuilt local ChromaDB, 49 vectors)]
+    SC --> G[Gemini API: query embeddings and answers]
+    S[Private Cloud Secrets] --> SC
+```
 
-For subsequent code updates, commit the intended files and push to this same
-`main` branch; Community Cloud follows the branch and updates the app. Manage
-the API key through Cloud app settings. Keep the database bundled across code
-updates, and review any replacement index before publishing it. Runtime uses
-repository-relative paths and root-level Cloud secrets, so the deployed app
-needs no connection to the development PC. No local deployment blocker was
-found. Publication approval, push authorization, private Cloud secret setup, and
-actual hosted build and answer checks remain pending.
+The deployment configuration uses Python 3.12 and the existing pinned root
+`requirements.txt`. The theme-only `.streamlit/config.toml` and `ui.css` ship
+with the app. Root-level `GEMINI_API_KEY`, `GEMINI_CHAT_MODEL`, and
+`GEMINI_EMBEDDING_MODEL` are configured privately through Streamlit Cloud
+Secrets. Root-level secrets reach the environment read by the existing client;
+that behavior was checked with a placeholder during readiness testing. No real
+key belongs in the repository or a committed `secrets.toml`.
+
+The configured models remain `gemini-embedding-2` and `gemini-3.8-flash`.
+`app.py` opens the bundled index without invoking ingestion or document
+embedding. Server-side execution does not depend on the development PC being
+online. The query cache and session history are disposable. If they disappear,
+new questions can require new query embeddings and conversations reset, but
+the committed document index remains available. The clean-copy and Linux tests
+establish this packaging behavior; no independent hosted cold-restart test is
+claimed.
+
+**Updates and deployment limitations.** Intended application changes committed
+and pushed to the same `main` branch reach the connected Streamlit deployment.
+Manage secrets in Cloud app settings, preserve the prebuilt index across code
+updates, and review any replacement source-containing snapshot separately.
+The demo depends on Gemini access, quota, and hosting availability. Its local
+query cache and session state are not durable multi-user storage. Resource
+limits, sustained concurrency, exact hosted runtime patch version, and hosted
+cold restarts were not independently measured. No Docker, CI/CD, external
+database, or additional infrastructure was introduced.
 
 Streamlit's official documentation describes [Python selection and deployment](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy),
 [Linux dependencies](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies),
 and [private secrets](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
-Index publication has explicit user approval. Hosted deployment and live URL
-verification remain pending.
+
+### Current v1.0 feature inventory
+
+| Area | Implemented behavior |
+|---|---|
+| PDF processing | PyMuPDF extraction of 92 physical pages into 49 chunks, with page metadata and approximately 400-697 estimated tokens per chunk |
+| Embeddings | Gemini Embedding 2, 3,072 dimensions, shared indexed/query configuration with document/query-specific prefixes |
+| Storage and retrieval | Persistent ChromaDB cosine index, top-five semantic retrieval, configuration validation, query-embedding caching |
+| Answers and citations | Gemini 3.8 Flash, source-ID validation, page citations derived from metadata, unsupported-question refusal, outdated-travel-information warning |
+| Evidence | Expandable source cards, excerpt previews, page ranges, full passages, and original retrieval ranks |
+| Interface | Responsive Streamlit chat, custom CSS/theme, six example prompts, displayed conversation history, reset action |
+| Retrieval evaluation | 25 verified questions, 20 answerable, five multi-fact evidence groups, five unanswerable; saved per-question top-ten rankings |
+| Recorded results | Hit@5 1.0000, MRR@10 0.9667, CompleteEvidence@5 1.0000, zero retrieval errors |
+| Answer-quality review | 5/5 supported answers passed factual/completeness/citation review; 5/5 unanswerable cases refused |
+| Deployment | Public GitHub main branch, Streamlit Community Cloud, bundled 49-vector index, private Cloud Secrets |
+
+Conversation history is display-only, not model memory. Live weather, booking,
+hybrid search, and reranking are not implemented. Citation-ID validation is
+not an automated factual verifier. Stages 5 and 6 retain the full answer and
+retrieval methodology, including sample limitations and q07's rank-three result.
+
+### Portfolio presentation and release
+
+The README presents the live links, technology badges, unchanged real screenshot,
+features, architecture, metrics, setup commands, deployment, limitations, and
+future improvements. It links directly to the approved labels, per-question
+rankings, evaluation summary, answer review, and this report. Existing evaluation
+artifacts and stored vectors are unchanged by the portfolio pass.
+
+A cookie-aware HTTP check reached the supplied live URL with status 200 and
+received the Streamlit HTML shell. This establishes URL reachability, not a
+new hosted answer-generation or cold-restart test. No Gemini evaluation calls
+were made during this documentation task.
+
+Suggested GitHub About settings, without changing them during this task:
+
+- Description: "An evaluated RAG chatbot for Northern Pakistan travel information, powered by Gemini, ChromaDB, and Streamlit."
+- Topics: `rag`, `python`, `streamlit`, `gemini`, `chromadb`, `generative-ai`, `ai-chatbot`, `retrieval-augmented-generation`.
+- Website: `https://pakistan-north-travel-ai.streamlit.app/`.
+
+GitHub CLI is available and authenticated; repository metadata can be updated
+if requested. The proposed release uses Git tag `v1.0.0` and GitHub release title
+`v1.0.0 — Initial RAG MVP`. Neither is created without explicit approval.
