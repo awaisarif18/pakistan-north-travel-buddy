@@ -4,9 +4,10 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
-**v1.1 development branch:** `feature/v1.1-langgraph` migrates the local chatbot
-to LangChain and LangGraph, with session-scoped conversational memory. The live demo, `main`, and tag `v1.0.0`
-remain on the stable v1.0 implementation. This migration has not been deployed.
+**v1.1 release candidate:** the approved `feature/v1.1-langgraph` changes have
+been merged into `main`. Streamlit has picked up the update; hosted functional
+verification and GitHub release publication remain pending. Tag `v1.0.0`
+preserves the previous implementation.
 
 ## What's New in v1.1.0
 
@@ -42,8 +43,8 @@ account-based quotas if the demo grows. Those features are not implemented.
 
 See the [prepared release notes](docs/RELEASE_v1.1.0.md),
 [planner review](evals/trip_planner_review.md), and
-[technical report](docs/PROJECT_REPORT.md). This branch is a release candidate;
-`main` and the live v1.0 deployment remain unchanged until approval.
+[technical report](docs/PROJECT_REPORT.md). The release candidate is on `main`;
+see the deployment section for the current verification status.
 
 ## Live demo and source code
 
@@ -65,7 +66,7 @@ See the [prepared release notes](docs/RELEASE_v1.1.0.md),
 
 - Processes the 92-page guide with PyMuPDF into 49 text chunks with physical PDF page metadata.
 - Uses Gemini Embedding 2 at 3,072 dimensions and persistent ChromaDB cosine search to retrieve the top five passages.
-- Generates concise answers with Gemini 3.5 Flash Lite on v1.1. The deployed v1.0 still uses Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
+- Generates concise answers with Gemini 3.5 Flash Lite on v1.1. The preserved v1.0 release used Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
 - Exposes retrieved passages in expandable source cards and refuses questions unsupported by the supplied evidence.
 - Provides a responsive Streamlit chat interface with six example prompts, conversation display, and a reset option.
 - On v1.1, adds a source-grounded trip planner and sidebar links for feedback and optional future testing.
@@ -200,8 +201,8 @@ Optional LangSmith tracing reads `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and
 `LANGSMITH_TRACING=false`; development commands require an explicit `--trace`
 or `--langsmith` flag to upload traces/results. Streamlit calls the workflow
 with tracing forced off, even if the environment flag is true. Keep real
-tracing keys private, like the Gemini key. No tracing configuration was
-deployed to the live v1.0 app.
+tracing keys private, like the Gemini key. Production needs no LangSmith API
+key or project setting; leave those development credentials out of Cloud Secrets.
 
 ## Evaluation methodology and results
 
@@ -371,7 +372,7 @@ privacy checks, and limitations.
 
 **Send Feedback** and **Help Test Future Releases** in the sidebar open the
 same [existing Google Form](https://forms.gle/5McdABdSnigwwdNz5) in a new tab.
-Set `FEEDBACK_FORM_URL` in `.env` or future Streamlit Secrets to configure it.
+Set `FEEDBACK_FORM_URL` in `.env` or Streamlit Secrets to configure it.
 Links remain available when AI quota is exhausted. The app adds no prefilled
 prompts, conversation history, trip details, identifiers, email, or keys.
 
@@ -438,7 +439,7 @@ disable tracing. No held-out benchmark or LLM judge is part of planner testing.
 
 ### Flash Lite generation and anonymous usage safeguards on v1.1
 
-The public v1.0 deployment is unchanged. This branch uses
+The v1.1 application uses
 `gemini-3.5-flash-lite` as its only configured text-generation model, through
 `GEMINI_CHAT_MODEL`. Rewriting and final answers use that same model and one
 shared generation-call budget. The trip planner uses that same model and
@@ -470,7 +471,7 @@ call. These estimates are not exact provider token measurements. SDK calls make
 one attempt; provider 429s return a friendly message with a 60-second process
 backoff, without promising when Google will restore quota.
 
-Configure `.env`, or top-level Streamlit Secrets for a future deployment, and
+Configure `.env`, or top-level Streamlit Secrets for deployment, and
 restart the process. `.env.example` contains the current names and defaults:
 
 | Variable | Default |
@@ -549,8 +550,8 @@ index, never the deployed snapshot. Optional `--live` generates at most four
 answers and reuses saved migration outputs when code/model/question match;
 it makes no new calls on a matching rerun. Manual answer review is still needed.
 
-General setup for a fresh checkout follows. The live `main` branch still has
-v1.0's requirements; install the requirements from whichever branch you run.
+General setup for a fresh checkout follows. `main` contains v1.1's pinned
+requirements. The `v1.0.0` tag retains the historical release and dependencies.
 
 The complete index is included in the repository. The source PDF and extraction
 files are not needed to run the chatbot. Python 3.12 matches the deployment
@@ -657,7 +658,26 @@ Configure the following root-level keys privately in Streamlit Cloud Secrets:
 GEMINI_API_KEY = "your-private-key"
 GEMINI_CHAT_MODEL = "gemini-3.5-flash-lite"
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-2"
+RETRIEVAL_MODE = "dense"
+FEEDBACK_FORM_URL = "https://forms.gle/5McdABdSnigwwdNz5"
 ```
+
+Only `GEMINI_API_KEY` is required. Reuse the existing v1.0 Gemini key; no new
+API credential is needed. The other entries above explicitly select defaults.
+Paste them at the root of App Settings → Secrets, without a TOML section header,
+then Save. Keep `GEMINI_CHAT_MODEL` set to Flash Lite and the indexed embedding
+model unchanged. All session/API budgets have the documented defaults in code;
+their optional environment names and values appear in the usage table above.
+Quoted numeric strings work with `Policy.from_env()` after Streamlit exports
+root-level secrets to environment variables. LangSmith production keys are not
+required, and public chat/planner tracing is explicitly disabled.
+
+The approved feature commit `48b4adf` was merged with history preserved in
+`db3bf81` and pushed to `main`. Streamlit installed the new dependencies on
+Python 3.12.15 and restarted. During this verification attempt the browser
+remained on a loading screen, so hosted answers, follow-ups, planning, quotas,
+and responsive layout have **not** been confirmed. GitHub release publication
+is held until hosted functional checks succeed. No hosted Gemini call was made.
 
 The app opens the repository-relative prebuilt index without ingestion or
 document embedding at startup. It requires no original PDF, hosted database,
@@ -677,7 +697,7 @@ and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community
 - The static guide may contain outdated or incorrect travel information. The app does not verify current prices, weather, schedules, availability, or road conditions, and does not book hotels or transport.
 - Some chunks span destinations or page boundaries. Citations identify stored page ranges rather than exact sentences, and valid source IDs alone do not prove every claim is supported.
 - Lower-ranked passages can be irrelevant. The small curated evaluation set includes earlier smoke questions and related facts, so its scores should not be generalized to all questions.
-- The live v1.0 demo has display-only history. This v1.1 branch uses volatile conversational memory with four-exchange rewrite context; heuristic follow-up detection can miss unusual wording. Name the destination when resolution is unclear. Hybrid retrieval is available on the branch; neural reranking is not implemented.
+- The preserved v1.0 release has display-only history. v1.1 uses volatile conversational memory with four-exchange rewrite context; heuristic follow-up detection can miss unusual wording. Name the destination when resolution is unclear. Hybrid retrieval is available; neural reranking is not implemented.
 - Query caching and session storage are designed for a demo, not concurrent production workloads. Gemini access and quota are required; Cloud restarts may clear caches and sessions.
 - Some CSS uses Streamlit DOM hooks and should be checked when upgrading Streamlit. A hosted cold restart and broad adversarial refusal testing have not been independently verified.
 

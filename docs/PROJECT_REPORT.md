@@ -1930,3 +1930,77 @@ Completed source, focused tests, and reports are prepared for the feature-branch
 commit and push. Merging into `main`, creating a release tag, publishing the
 GitHub release, and deploying v1.1 remain behind the user's final approval gate.
 No v1.1 hosted URL is claimed; the current live application remains v1.0.
+
+## Stage 16: approved production merge and deployment verification
+
+The owner approved the v1.1 production merge and release, conditional on correct
+Secrets and successful hosted checks. The Google Form's required Name field is
+intentional and was preserved. No Google Form setting was changed.
+
+### Production configuration
+
+The actual runtime reads `GEMINI_API_KEY`, `GEMINI_CHAT_MODEL`,
+`GEMINI_EMBEDDING_MODEL`, `RETRIEVAL_MODE`, `FEEDBACK_FORM_URL`, and the optional
+policy settings listed in README's usage table. Only the API key is mandatory.
+The existing v1.0 Gemini key can be reused; the owner confirmed that the key was
+configured and generation changed to `gemini-3.5-flash-lite`. Query embeddings
+remain `gemini-embedding-2` at 3,072 dimensions. All current usage limits are
+defaults in `Policy`; missing optional entries do not disable protection.
+
+Streamlit Cloud exports root-level TOML secrets as environment variables. The
+clean Linux Python 3.12 check had already exercised this behavior with a
+placeholder key. No production secret values were read into the audit output.
+Both public workflow entry points force tracing off, so production requires no
+LangSmith API key or project. No new credential is needed. The exact required
+key and optional model/retrieval/form settings appear in README's deployment
+section; numeric policy overrides can be quoted TOML strings.
+
+### Git preservation and merge
+
+`git fetch origin` confirmed both local branches matched GitHub. Tag `v1.0.0`
+still points to the original release commit `cc7096c`. The approved feature
+commit `48b4adf` was merged into `main` using a merge commit, preserving history:
+
+```text
+db3bf815d8ae13dbd6e0cd199cea9262d58b699f
+Merge v1.1.0 conversational RAG and AI trip planning
+```
+
+The merge was pushed normally, without force. A post-merge comparison with
+`v1.0.0` confirmed no committed Chroma snapshot change and no change to the
+original questions, results, summary, or answer-quality review. The two known
+local Chroma storage-file differences remained unstaged. No vector regeneration,
+evaluation rerun, model change, or application-code correction was performed
+during this deployment attempt.
+
+### Actual hosted observations and current gate
+
+The existing Streamlit application detected the main-branch update. Its logs
+showed a transient `ModuleNotFoundError: No module named 'langgraph'` while the
+old running environment was updating. Installation then added the pinned
+LangChain/LangGraph packages and upgraded `google-genai` to 2.20.0. Logs confirmed
+Python 3.12.15. Cloud also automatically replaced pyarrow 26.0.0 with 24.0.0
+using its platform compatibility rule; no repository dependency change was made.
+
+The browser remained on a loading screen after that update. One controlled
+reboot of the existing app was performed. Logs then showed a fresh clone,
+installation of all 126 resolved packages, completed dependency processing,
+and `Uvicorn server started on :::8501`. No subsequent application exception
+was visible in the inspected logs. A fresh second browser tab also stayed on
+the loading screen. Browser diagnostics did not establish the cause. An HTTP
+health-path request returned HTML rather than a health result and is not treated
+as evidence of application readiness.
+
+Therefore hosted chat, follow-ups, refusal, planning, quota behavior, feedback
+actions, desktop/mobile layout, and a server-side count of 49 vectors remain
+unverified in this attempt. The unchanged packaged snapshot and clean Linux
+49-vector result remain valid local evidence, not a substitute for hosted
+verification. No live Gemini generation or embedding request was submitted.
+No public-user trace was uploaded. The owner was asked to check whether the
+Chat and Plan a Trip interface loads in their browser.
+
+GitHub tag/release publication is held until hosted functional checks succeed.
+The prepared release notes remain in `docs/RELEASE_v1.1.0.md`. If a persistent
+deployment failure is confirmed, inspect the current logs before making a
+targeted correction. A reviewed `git revert -m 1 db3bf81` followed by a normal
+push is a history-preserving rollback option; no rollback was performed.
