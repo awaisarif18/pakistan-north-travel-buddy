@@ -2058,3 +2058,29 @@ Generation, embeddings, and LangSmith uploads were all guarded at zero. A full
 app restart is used when deploying this correction to clear cached graphs and
 old session plans. Volatile session/process quotas reset on restart; provider
 project counters do not.
+
+## Stage 17: v1.1.0 release publication
+
+After reviewing the hosted screenshots and the focused corrections, the owner
+explicitly requested publication of the GitHub release. This supersedes the
+earlier wait-for-verification publication gate. The remaining hosted visual
+retest, quota/link/mobile checks, and exact server-side vector count are still
+not claimed as independently verified. The available local Linux check confirms
+49 unchanged vectors, and owner-provided screenshots establish supported chat,
+follow-up context, unsupported refusal, and a generated partial trip outline.
+
+The release is titled `v1.1.0 — Conversational RAG & AI Trip Planning` and uses
+the reviewed notes in `docs/RELEASE_v1.1.0.md`:
+
+- [GitHub v1.1.0 release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.1.0)
+- [Existing live application](https://pakistan-north-travel-ai.streamlit.app/)
+
+The release includes the approved feature merge and currency/motorbike-access
+corrections already on `main`. README and release notes now describe the current
+release rather than a pending development branch. Original v1.0 tags, evaluation
+artifacts, and the committed Chroma snapshot are preserved. Only these three
+documentation files change in the publication commit; the two known local
+Chroma storage differences remain unstaged. No application change, document
+embedding, evaluation rerun, new dependency, or Gemini request is part of this
+publication step. Production LangSmith tracing remains disabled and needs no
+LangSmith credential.

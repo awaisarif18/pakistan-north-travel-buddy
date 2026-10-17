@@ -1,7 +1,8 @@
 # v1.1.0 — Conversational RAG & AI Trip Planning
 
-Prepared release notes. Merge/release approval was received; publish after the
-remaining owner-assisted hosted functional checks pass.
+Conversational RAG and personalized trip planning, built on the original
+49-vector document index. Published at the owner's explicit direction with
+the remaining hosted verification limits recorded below.
 
 Live application: https://pakistan-north-travel-ai.streamlit.app/
 
@@ -77,6 +78,7 @@ loads correctly. Owner screenshots also confirm supported chat, follow-up
 continuity, unsupported-weather refusal, and a partial planner result. They
 exposed currency rendering and an unverified motorbike motorway route; focused
 corrections pass mocked checks and await hosted retesting. Quotas, links, and
-responsive layout still need owner-assisted verification before publication.
+responsive layout still need owner-assisted verification. These checks are not
+claimed as passed; the owner explicitly requested publication at this stage.
 The audit's browser remained on a loading screen. The original `v1.0.0` tag and
 evaluation artifacts are preserved. No rollback was performed.

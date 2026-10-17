@@ -4,14 +4,14 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
-**v1.1 release candidate:** the approved `feature/v1.1-langgraph` changes have
-been merged into `main`. Streamlit has picked up the update; hosted functional
-verification and GitHub release publication remain pending. Tag `v1.0.0`
-preserves the previous implementation.
+**v1.1.0:** conversational RAG and personalized trip planning are on `main` and
+the existing Streamlit deployment. See the [GitHub release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.1.0)
+for the full change list and verification limits. Tag `v1.0.0` preserves the
+previous implementation.
 
 ## What's New in v1.1.0
 
-The v1.1 release candidate adds LangChain model/retrieval interfaces and a typed
+The v1.1 release adds LangChain model/retrieval interfaces and a typed
 LangGraph conversation workflow with session memory and conditional follow-up
 rewriting. Gemini 3.5 Flash Lite handles rewriting, answers, and trip outlines;
 Gemini Embedding 2 and all 49 original Chroma vectors remain unchanged.
@@ -41,9 +41,9 @@ review; citations validate references, not every claim. Next priorities are
 independent varied evaluation cases, stronger feasibility checks, and durable
 account-based quotas if the demo grows. Those features are not implemented.
 
-See the [prepared release notes](docs/RELEASE_v1.1.0.md),
+See the [release notes](docs/RELEASE_v1.1.0.md),
 [planner review](evals/trip_planner_review.md), and
-[technical report](docs/PROJECT_REPORT.md). The release candidate is on `main`;
+[technical report](docs/PROJECT_REPORT.md). The release is on `main`;
 see the deployment section for the current verification status.
 
 ## Live demo and source code
@@ -683,7 +683,8 @@ The focused correction escapes currency only for display and withholds a
 motorbike day schedule when generated routing includes motorway access. It
 does not invent an alternative route or assert current access rules. These
 corrections pass mocked checks; their hosted visual retest and the remaining
-quota/link/mobile checks are pending. GitHub release publication remains held.
+quota/link/mobile checks are pending follow-up items. The owner approved
+v1.1.0 publication with these verification limits recorded.
 No hosted Gemini call was made by the release audit.
 
 The app opens the repository-relative prebuilt index without ingestion or
