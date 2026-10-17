@@ -1,4 +1,4 @@
-"""Extract a local PDF and preview chunks without making API calls."""
+"""Extract a PDF locally, or index saved chunks with --embed."""
 
 import argparse
 from collections import Counter
@@ -130,7 +130,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pdf", type=Path, default=PDF_PATH)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "data")
+    parser.add_argument("--embed", action="store_true", help="Index the reviewed data/chunks.json; reuse saved vectors.")
     args = parser.parse_args()
+    if args.embed:
+        if args.pdf != PDF_PATH or args.output_dir != ROOT / "data":
+            parser.error("--embed uses the reviewed data/chunks.json; omit --pdf and --output-dir.")
+        from google.genai import errors
+        from rag import build_index
+        try:
+            build_index()
+        except errors.APIError as error:
+            parser.exit(1, f"Gemini API error {error.code}. Check model access, API key, or quota. "
+                        "Completed vectors are saved; rerun to resume.\n")
+        except ValueError as error:
+            parser.exit(1, f"{error}\n")
+        return
     if not args.pdf.is_file():
         parser.error(f"PDF not found: {args.pdf}")
     pages = extract_pages(args.pdf)
