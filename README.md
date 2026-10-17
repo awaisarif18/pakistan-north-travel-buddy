@@ -674,10 +674,17 @@ required, and public chat/planner tracing is explicitly disabled.
 
 The approved feature commit `48b4adf` was merged with history preserved in
 `db3bf81` and pushed to `main`. Streamlit installed the new dependencies on
-Python 3.12.15 and restarted. During this verification attempt the browser
-remained on a loading screen, so hosted answers, follow-ups, planning, quotas,
-and responsive layout have **not** been confirmed. GitHub release publication
-is held until hosted functional checks succeed. No hosted Gemini call was made.
+Python 3.12.15 and restarted. The audit's browser connection stayed on a loading
+screen, but owner-provided screenshots confirmed a cited Rakaposhi answer,
+destination-aware season follow-up, live-weather refusal, and a partial Kumrat
+plan. The screenshots also exposed dollar-sign math rendering and a source-
+described motorway route whose current motorbike access was not established.
+The focused correction escapes currency only for display and withholds a
+motorbike day schedule when generated routing includes motorway access. It
+does not invent an alternative route or assert current access rules. These
+corrections pass mocked checks; their hosted visual retest and the remaining
+quota/link/mobile checks are pending. GitHub release publication remains held.
+No hosted Gemini call was made by the release audit.
 
 The app opens the repository-relative prebuilt index without ingestion or
 document embedding at startup. It requires no original PDF, hosted database,

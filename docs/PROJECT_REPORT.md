@@ -1920,7 +1920,7 @@ and keep public tracing disabled.
 | Roadmap | Broader independent cases, stronger feasibility checks, durable account quotas. | Future enhancements, not implemented. |
 
 Prepared `docs/RELEASE_v1.1.0.md` for the GitHub release titled
-`v1.1.0 ? Conversational RAG & AI Trip Planning`. README contains the same
+`v1.1.0 — Conversational RAG & AI Trip Planning`. README contains the same
 release overview while preserving v1.0 history and benchmark methods. Audit
 scripts/results, runtime copies, placeholder secrets, and temporary environments
 remain outside the commit under ignored audit paths or the local Linux cache.
@@ -1999,8 +1999,62 @@ verification. No live Gemini generation or embedding request was submitted.
 No public-user trace was uploaded. The owner was asked to check whether the
 Chat and Plan a Trip interface loads in their browser.
 
+The owner subsequently confirmed that the interface loads correctly. This is
+owner-confirmed hosted startup, separate from the browser connection limitation
+observed by the audit. There is no evidence supporting an application rollback.
+Supported answers, follow-ups, unsupported refusal, a grounded Skardu plan,
+chat/planner allowances, feedback links, and narrow-screen layout were requested
+as final owner-assisted hosted checks. Their results remain pending.
+
 GitHub tag/release publication is held until hosted functional checks succeed.
 The prepared release notes remain in `docs/RELEASE_v1.1.0.md`. If a persistent
 deployment failure is confirmed, inspect the current logs before making a
 targeted correction. A reviewed `git revert -m 1 db3bf81` followed by a normal
 push is a history-preserving rollback option; no rollback was performed.
+
+### Owner-provided hosted screenshots and focused corrections
+
+Five owner-provided screenshots supplied actual hosted evidence, without
+publishing the images or uploading conversations to LangSmith:
+
+| Hosted observation | Review result |
+|---|---|
+| Rakaposhi Base Camp answer | Its visible facts and June-September season match chunk `p020-022-8d8b2710273b`, cited as PDF pages 20-22. Price rendering failed because dollar signs became LaTeX delimiters. |
+| "what's the best season" follow-up | Correctly retained Rakaposhi and answered June-September with the same PDF citation. |
+| Tomorrow's exact weather in Skardu | Refused with "I couldn't find that information in the PDF" and zero cited passages. |
+| Planner form and generated cards | Accepted Islamabad to Kumrat, six days, Motorbike, Mid-range, July, with Nature/Sightseeing/Trekking/Culture. A partial outline and cited day cards were visible. This was not the requested Skardu case, and the screenshots did not show the full return schedule or all guidance. |
+| Motorbike route wording | The first day recommends M-1 and Swat Motorway. Chunk `p069-070-ef7a401bc920` explicitly describes that bike route, so it is source-consistent, but the static document does not establish current vehicle access. No current access rule or replacement route was asserted by the audit. |
+
+`app.py` now uses one small `show_text` helper to escape unescaped dollar signs
+at the Markdown display boundary. Chat answers, original user text, expanded
+source passages, and planner text share it. Stored answers, amounts, source IDs,
+page citations, embeddings, and query caches are unchanged. Streamlit's
+[Markdown documentation](https://docs.streamlit.io/develop/api-reference/text/st.markdown)
+confirms that dollar delimiters enable LaTeX. No new dependency was added.
+
+The planner prompt now forbids assuming motorway access for a Motorbike request
+from static guide wording. A narrow validation guard also withholds overview,
+daily routing, and Transport prose if generated routing still mentions motorways
+or an M-number route. Source-supported non-transport guidance remains available,
+with explicit missing-access limitations and partial status. It does not insert
+an outside route or claim that a particular road is legally prohibited. This
+conservative text guard can withhold benign motorway mentions too; it is not a
+general routing/feasibility validator.
+
+The existing planner checks now exercise motorway withholding, unchanged car
+behavior, retained non-motorway bike output, literal chat/planner currency,
+unchanged stored text/citations, and no double escaping. Graph, quota, and UI
+groups pass. All seven conversation scenarios and their Streamlit checks pass
+again. These executed checks used zero real Gemini requests and no LangSmith
+uploads. Exact API consumption behind the owner's screenshots is not available
+and was not inferred as a measured count. Hosted retesting of the corrections
+and the remaining quota/link/mobile checks is still required before publication.
+
+The patched runtime also passed the existing isolated Linux Python 3.12.3
+startup check: all three retriever modes initialize, both screens render,
+Streamlit Secrets export works with a placeholder, and all 49 original vectors
+retain fingerprint `394c832e5e8bee68fa9f85fca85d97421081139d29838e162be5fe30e2c21dc6`.
+Generation, embeddings, and LangSmith uploads were all guarded at zero. A full
+app restart is used when deploying this correction to clear cached graphs and
+old session plans. Volatile session/process quotas reset on restart; provider
+project counters do not.

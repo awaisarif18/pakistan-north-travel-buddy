@@ -16,7 +16,7 @@ def planner_resources():
     return build_planner(open_retriever(mode=RETRIEVAL_MODE), chat_model())
 
 
-def show_planner(limiter, show_evidence):
+def show_planner(limiter, show_evidence, show_text):
     st.markdown('<div class="conversation-heading"><h1>Make room for the north.</h1>'
                 '<p>A personal trip outline, grounded in the guide.</p></div>', unsafe_allow_html=True)
     st.caption("Travel days include the outward and return journeys. Plans may be partial when the guide lacks details.")
@@ -51,22 +51,22 @@ def show_planner(limiter, show_evidence):
     st.caption(f"{limiter.remaining(st.session_state.usage, 'trip_plan')} of {limiter.policy.trip_requests} trip plans remaining in this session window.")
     if "trip_plan" in st.session_state:
         plan = st.session_state.trip_plan
-        st.markdown(f"### {plan['preferences']['destination']} trip outline")
+        show_text(f"### {plan['preferences']['destination']} trip outline")
         if plan["status"] != "complete":
             st.info("A partial outline" if plan["status"] == "partial" else "This trip is not supported by the guide")
         if plan["overview"]:
-            st.markdown(plan["overview"])
+            show_text(plan["overview"])
         for day in plan["days"]:
             with st.container(border=True):
-                st.markdown(f"#### Day {day['day']} · {day['title']}")
-                st.markdown(day["text"])
+                show_text(f"#### Day {day['day']} · {day['title']}")
+                show_text(day["text"])
         for topic, text in plan["guidance"].items():
             if text:
                 with st.expander(topic, expanded=topic in {"Season", "Safety"}):
-                    st.markdown(text)
+                    show_text(text)
         if plan["limitations"]:
             st.markdown("#### Before you make arrangements")
             for line in plan["limitations"]:
-                st.write(f"• {line}")
+                show_text(f"• {line}")
         show_evidence({"text": "", "cited_ids": plan["cited_ids"], "matches": plan["matches"]})
     st.caption(TRAVEL_NOTICE)

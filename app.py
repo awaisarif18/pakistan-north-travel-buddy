@@ -53,9 +53,14 @@ if "usage" not in st.session_state:
     st.session_state.usage = new_usage()
 
 
+def show_text(text):
+    # Travel prices are literal currency, not LaTeX. Keep stored answers unchanged.
+    st.markdown(re.sub(r"(?<!\\)\$", r"\\$", text))
+
+
 def show_answer(message):
     # Only presentation changes: retain the backend's exact page values and text.
-    st.markdown(re.sub(CITATION, r"`\1`", message["text"]))
+    show_text(re.sub(CITATION, r"`\1`", message["text"]))
     matches = message["matches"]
     if not matches:
         return
@@ -74,7 +79,7 @@ def show_answer(message):
                     f'</div><p>{escape(preview)}</p></div>')
             with st.expander(f"Read full passage · {page_label(match['metadata'])}"):
                 st.caption(match["metadata"]["source"])
-                st.markdown(match["text"])
+                show_text(match["text"])
                 st.caption(f"Passage reference: {match['id']}")
 
 
@@ -87,7 +92,7 @@ def show_message(message, key):
             if role == "assistant":
                 show_answer(message)
             else:
-                st.markdown(message["text"])
+                show_text(message["text"])
 
 
 def empty_state():
@@ -136,7 +141,7 @@ st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'
         '<span class="workspace-tag"><i></i> Your guide to the north</span></header>')
 if view == "Plan a Trip":
     from planner_ui import show_planner
-    show_planner(limiter, show_answer)
+    show_planner(limiter, show_answer, show_text)
     st.stop()
 try:
     if "conversation" not in st.session_state:

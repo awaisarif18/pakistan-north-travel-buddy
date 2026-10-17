@@ -1,6 +1,9 @@
 # v1.1.0 — Conversational RAG & AI Trip Planning
 
-Prepared release notes. Do not publish until merge/release approval.
+Prepared release notes. Merge/release approval was received; publish after the
+remaining owner-assisted hosted functional checks pass.
+
+Live application: https://pakistan-north-travel-ai.streamlit.app/
 
 ## What's New in v1.1.0
 
@@ -12,6 +15,8 @@ Prepared release notes. Do not publish until merge/release approval.
 - Shared API budgets, rolling session allowances, cooldown, concurrency protection, Pacific-day accounting, and friendly 429 handling.
 - Configurable Google Forms feedback and early-tester consent links, without automatic prompt/history transfer.
 - Personalized trip outlines with day cards, source evidence, preference validation, shared quotas, and explicit missing-information handling.
+- Literal currency rendering in answers, source passages, and itineraries; prices no longer become accidental LaTeX.
+- Motorbike motorway-access guard: a static source citation cannot establish current vehicle eligibility. Unverified motorway routing produces partial guidance without a committed day schedule.
 
 ## Recorded retrieval results
 
@@ -66,5 +71,12 @@ independent evaluations, strengthen itinerary feasibility checks, and add
 durable account quotas only when needed. Live bookings/weather, authentication,
 neural reranking, and email automation are not implemented.
 
-Merging, tagging, GitHub release publication, and v1.1 deployment require
-separate approval. The current live v1.0 app remains unchanged.
+The approved feature commit was merged into `main` and the existing Streamlit
+application updated. The owner confirmed that the Chat and Plan a Trip interface
+loads correctly. Owner screenshots also confirm supported chat, follow-up
+continuity, unsupported-weather refusal, and a partial planner result. They
+exposed currency rendering and an unverified motorbike motorway route; focused
+corrections pass mocked checks and await hosted retesting. Quotas, links, and
+responsive layout still need owner-assisted verification before publication.
+The audit's browser remained on a loading screen. The original `v1.0.0` tag and
+evaluation artifacts are preserved. No rollback was performed.

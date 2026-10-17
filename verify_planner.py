@@ -32,7 +32,7 @@ def fixtures():
             p = json.loads(prompt.messages[-1].content)["preferences"]
             unsupported = p["destination"] == "Moon"
             short = p["days"] == 1
-            part = {"text": "Controlled Hunza evidence.", "sources": ["S1"]}
+            part = {"text": "Controlled Hunza evidence. Guide prices: $15/day and US$1,000.", "sources": ["S1"]}
             return {"status": "unsupported" if unsupported else "partial" if short else "complete",
                     "overview": [] if unsupported else [part],
                     "days": [] if short or unsupported else [
@@ -68,6 +68,16 @@ def graph_checks():
         else:
             raise AssertionError("Invalid preferences accepted")
     state = graph.invoke({"preferences": CASES[0]["preferences"]})
+    motorway = deepcopy(state)
+    motorway["payload"]["days"][0]["activities"][0]["text"] = "Ride via M-1 and the Swat Motorway."
+    withheld = validate_plan(motorway)["plan"]
+    assert withheld["status"] == "partial" and not withheld["days"] and not withheld["overview"]
+    assert "Transport" not in withheld["guidance"]
+    assert any("current motorbike access" in line for line in withheld["limitations"])
+    assert len(motorway["payload"]["days"]) == CASES[0]["preferences"]["days"]
+    motorway["preferences"]["transport"] = "Car"
+    assert validate_plan(motorway)["plan"]["days"]  # Motorbike-specific guard.
+    assert validate_plan(state)["plan"]["days"]  # Other bike routes stay unchanged.
     for invalid in ["bad_source", "bad_day", "empty_activity"]:
         broken = deepcopy(state)
         if invalid == "bad_source":
@@ -119,6 +129,9 @@ def ui_checks():
     from verify_conversation import fixtures as chat_fixtures
     graph, queries, calls, _ = fixtures()
     retriever, chat, _, _, _ = chat_fixtures()
+    price_text = "Guide prices: $15/day and US$1,000. Already escaped: " + r"\$20."
+    retriever = RunnableLambda(lambda _: [Document(id="fixture-price", page_content=price_text,
+                               metadata={"source": "synthetic.pdf", "page_start": 20, "page_end": 22})])
     clock = [10000.0]
     limiter = ProcessLimiter(Policy(), clock=lambda: clock[0])
     with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
@@ -129,6 +142,14 @@ def ui_checks():
         target = "https://forms.gle/5McdABdSnigwwdNz5"
         assert links["Send Feedback"] == links["Help Test Future Releases"] == target
         assert "?" not in links["Send Feedback"] and not calls
+        app.chat_input[0].set_value("Tell me about Rakaposhi Base Camp.").run()
+        assert not app.exception
+        assert any(r"\$15/day" in item.value and r"US\$1,000" in item.value for item in app.markdown)
+        assert not any(r"\\$20" in item.value for item in app.markdown)
+        thread_id, chat_graph = app.session_state.conversation
+        turns = chat_graph.get_state({"configurable": {"thread_id": thread_id}}).values["turns"]
+        assert price_text in turns[0]["answer"]["text"] and "PDF pages 20-22" in turns[0]["answer"]["text"]
+        clock[0] += 12
         app.radio(key="app_view").set_value("Plan a Trip").run()
         app.text_input(key="trip_departure").set_value(" ")
         next(b for b in app.button if b.label == "Create my trip outline").click().run()
@@ -139,6 +160,7 @@ def ui_checks():
             upload.assert_not_called()
         assert not app.exception and len(calls) == 1 and len(queries) == 3
         assert app.session_state.trip_plan["preferences"]["destination"] == "Hunza"
+        assert any(r"\$15/day" in item.value and r"US\$1,000" in item.value for item in app.markdown)
         app.run()
         assert not app.exception and len(calls) == 1
         clock[0] += 12

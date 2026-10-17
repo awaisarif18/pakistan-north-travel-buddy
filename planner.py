@@ -3,6 +3,7 @@
 import calendar
 import json
 import os
+import re
 import time
 from itertools import zip_longest
 from typing import TypedDict
@@ -45,6 +46,10 @@ PROMPT = ChatPromptTemplate.from_messages([
      "roads/passes/trails are fully accessible, currently open, or safe. "
      "For Car preference, keep 4x4-only excursions outside the committed daily plan unless a compatible "
      "vehicle is specified. Describe a jeep upgrade as optional in guidance, not an assumed change. "
+     "For Motorbike preference, do not recommend motorway access, even if the static guide describes "
+     "it as a bike route. The excerpts do not verify current vehicle-access permissions. If a compatible "
+     "outward/return route is not established, omit the day-by-day schedule and return partial guidance "
+     "with the missing approach/access information explained. Never invent a replacement route. "
      "Do not compress long journeys to fill a short trip or invent journey times, road access, prices, "
      "bookings, weather, or hotel availability. Consider transport, budget, interests, month and rest. "
      "If the requested route/time/season is unsupported or infeasible, return partial or unsupported "
@@ -114,6 +119,18 @@ def plan_schema(source_ids):
 
 def validate_plan(state: TripState):
     payload, p = state["payload"], state["preferences"]
+    route_text = [part["text"] for part in payload["overview"]]
+    route_text += [day["title"] + " " + part["text"] for day in payload["days"] for part in day["activities"]]
+    route_text += [part["text"] for item in payload["guidance"] if item["topic"] == "Transport"
+                   for part in item["paragraphs"]]
+    if p["transport"] == "Motorbike" and any(
+            re.search(r"\bmotorways?\b|\bM[-\s]?\d{1,2}\b", text, re.IGNORECASE) for text in route_text):
+        # A citation to the static guide cannot confirm current vehicle eligibility.
+        payload = {**payload, "status": "partial", "overview": [], "days": [],
+                   "guidance": [item for item in payload["guidance"] if item["topic"] != "Transport"],
+                   "limitations": [*payload["limitations"],
+                       "The guide's motorway route does not establish current motorbike access. "
+                       "A compatible outward and return route must be verified before travel days can be planned."]}
     sources = {f"S{i}": {"id": doc.id, "metadata": doc.metadata}
                for i, doc in enumerate(state["documents"], 1)}
     cited = []
