@@ -10,6 +10,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
+from langsmith import get_current_run_tree, tracing_context
 
 import rag
 
@@ -133,3 +134,15 @@ def build_workflow(retriever, chat):
         previous = name
     graph.add_edge(previous, END)
     return graph.compile()
+
+
+def run_question(graph, question, *, trace=False):
+    """Trace only explicit development calls; the public frontend uses False."""
+    project = os.getenv("LANGSMITH_PROJECT", "").strip()
+    key = os.getenv("LANGSMITH_API_KEY", "").strip()
+    if trace and (not key or key.startswith("your") or not project):
+        raise ValueError("Development tracing requires LANGSMITH_API_KEY and LANGSMITH_PROJECT in .env.")
+    # An experiment's parent trace owns its project; standalone dev calls use .env.
+    project_name = None if get_current_run_tree() is not None else project or None
+    with tracing_context(enabled=trace, project_name=project_name):
+        return graph.invoke({"question": question})

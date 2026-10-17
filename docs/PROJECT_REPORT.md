@@ -746,3 +746,266 @@ statuses are stored with those outputs. No deployment is part of this milestone.
 Sources used for integration behavior: [LangChain Gemini integration](https://docs.langchain.com/oss/python/integrations/chat/google_generative_ai),
 [Chroma integration](https://docs.langchain.com/oss/python/integrations/vectorstores/chroma),
 and [LangGraph typed graph API](https://docs.langchain.com/oss/python/langgraph/graph-api).
+
+
+## Stage 9: optional LangSmith tracing and the next benchmark
+
+**Scope.** Development work remains on `feature/v1.1-langgraph`. The v1.0
+25-question labels, per-question rankings, summary, and answer-quality review
+are unchanged. No historical scores were recalculated, no document embeddings
+were regenerated, no new benchmark was executed, and nothing was deployed.
+The existing LangSmith 0.14.11 dependency was reused without adding packages.
+
+### Development tracing and public-chat privacy
+
+`workflow.run_question` wraps graph invocation in LangSmith `tracing_context`.
+Tracing requires an explicit development opt-in, plus private
+`LANGSMITH_API_KEY` and `LANGSMITH_PROJECT`. The template now defaults
+`LANGSMITH_TRACING=false`. The existing private `.env` was preserved.
+`app.py` calls `run_question(..., trace=False)`, which overrides an ambient
+true tracing setting for the full graph and nested LangChain calls. Public
+Streamlit requests therefore do not automatically become LangSmith traces.
+CLI `ask --trace` and `evaluate --trace/--langsmith` deliberately opt in for
+specified development questions or dataset cases. Missing credentials fail
+clearly before a traced request. Existing experiment parents keep their own
+project context; standalone development traces use `LANGSMITH_PROJECT`.
+
+One synthetic trace, `synthetic-dev-trace-no-gemini`, was uploaded to the
+configured development project and read back. Its ten-span tree contains the
+root graph, four graph nodes, synthetic retriever, chain, prompt, Gemini
+wrapper, and JSON parser. The model response was mocked; no real Gemini
+request or public-user conversation was involved. A local callback collector
+alone did not expose the full native LangGraph hierarchy, so the server-side
+tree was inspected rather than assuming the callback view was complete.
+
+A separate privacy check invoked the actual graph with a synthetic retriever
+and mocked Gemini response while `LANGSMITH_TRACING=true`. Context checks
+inside retrieval and generation confirmed tracing was false, and intercepted
+LangSmith upload methods were never called. Credentials were not printed or
+embedded in dataset exports. This verifies the development integration and
+frontend policy; it is not a deployment of these changes to the live v1.0 app.
+
+### Dataset creation and review gate
+
+`eval_data.py` converts the existing verified labels into LangSmith examples:
+question as input; reference answer, answerability, source IDs, physical pages,
+excerpts, evidence groups, and verification status as reference outputs.
+Metadata includes question ID, split, and a semantic JSON source hash, which
+is stable across file line endings. The local export is
+`evals/langsmith_baseline.jsonl`. All 25 verified examples were imported into
+the private workspace dataset `pakistan-north-v1-verified-25`. This imports
+references, not scores, and does not run the old benchmark. The dataset was
+not made publicly shareable.
+
+Uploads use stable per-dataset UUIDs and check existing references. Matching
+examples are reused; differing dataset hashes, reference outputs, or unexpected
+examples are rejected rather than overwritten. Unverified labels are rejected
+before network/client creation. Future label changes need a newly reviewed,
+versioned dataset instead of rewriting an existing reference snapshot.
+
+The new `evals/questions_v1_1.json` contains 50 new question texts, with no exact
+question duplicates from the old set:
+
+| Split | Answerable | Unanswerable | Total |
+|---|---:|---:|---:|
+| Development | 8 | 2 | 10 |
+| Held-out | 32 | 8 | 40 |
+| Total | 40 | 10 | 50 |
+
+At initial preparation, all 50 statuses were `needs_review`. Positive cases cover practical planning
+and all eight regional groupings, with difficult paraphrases, named routes,
+confusing aliases, multi-fact requests, and multiple passages. Negative cases
+include live tunnel/flight/jeep-seat/network/landslide requests, future festival
+dates, undocumented Takhto depth, unresolved Sheerin Maidon identity, a live
+fuel price, and booking confirmation. The set is intended to be harder;
+empirical difficulty has not yet been measured.
+
+Each positive records the reference answer, gold chunk IDs, exact physical
+supporting pages, source excerpts, and required evidence groups where needed.
+Quotes were selected from the existing chunks and matched to page paragraphs
+in the saved 92-page extraction. Text matching is a consistency check, not
+independent source approval. The expandable `evals/review_v1_1.md` presents
+all 50 cases and evidence for manual review. Neither draft labels nor draft
+reference answers were imported as verified ground truth.
+
+Development and held-out gold chunk IDs are disjoint. All cases still share
+one PDF and may overlap in facts with the old benchmark, so this is question-
+and evidence-partitioned evaluation rather than an unseen-document benchmark.
+Freeze development choices before explicitly running the held-out split.
+
+The final-review revision moved h01, h02, h05, h06, h07, and h08 to held-out,
+and h19, h21, h27, h32, h34, and h39 to development. Development retains h03,
+h04, h09, and h10. Counts remain 8+2 and 32+8, and gold chunk sets remain
+disjoint. Question text, reference answers, gold chunk IDs, and evidence groups
+were preserved. All 50 labels stayed `needs_review` pending final approval at that stage.
+
+The independent audit reported 96 matching excerpts before this revision.
+Expanded verbatim passages now include h01's yearly drone limit on pages 3-4,
+h02's complete jeep-driver/guide arrangement on pages 16-17, and h06's recording
+purpose on pages 15-16. An additional Sogha location/access excerpt on page 42
+complements h21's existing page 43 evidence, bringing the total to 97 excerpts.
+Evidence and gold-page lists include those physical page boundaries. Local
+consistency checks do not replace final approval of the revised labels.
+
+This dataset is intentionally multi-fact-heavy: 38/40 answerable questions are
+`multi_fact`. Of these, 21 require one evidence group and 17 require two.
+Retain aggregate CompleteEvidence@5 over eligible verified questions, and plan
+a separate multi-passage CompleteEvidence@5 result restricted to questions
+requiring at least two distinct evidence groups, currently 17 cases. Report
+each denominator and split separately when evaluated. A one-group multi-fact
+success demonstrates coverage within a passage, not multi-passage retrieval.
+No new metric was calculated or evaluator changed during this dataset revision.
+Historical v1.0 results remain unchanged.
+
+All 17 two-group cases are held-out after the requested rebalance. The
+development multi-passage subgroup has no cases, so report it as unavailable
+rather than zero or a passing result. Do not use held-out results to tune the
+development workflow.
+
+Final local checks confirmed 50 unique IDs and question texts, 40 answerable
+and 10 unanswerable cases, all 97 verbatim chunk excerpts with exact physical
+page coverage, valid source IDs and evidence groups, and the requested split.
+The eight PDF pages supporting the four revised records also matched the saved
+extraction when read directly from the original PDF. At that revision, all labels
+remained `needs_review`; reference answers, gold IDs, and required groups were unchanged.
+Protected v1.0 artifacts and the current index files retained their pre-review
+hashes. No benchmark, Gemini request, LangSmith import, push, or deployment
+was performed during this revision.
+
+### Deterministic evaluators and manual answer review
+
+`eval_metrics.py` provides LangSmith-compatible code evaluators:
+
+- Hit@1: one if the first retrieved chunk is gold, otherwise zero.
+- Hit@5: one if any gold chunk is in ranks 1-5, otherwise zero.
+- MRR@10: reciprocal rank of the first gold chunk in ranks 1-10; zero for a miss.
+- CompleteEvidence@5: one if every reviewed required evidence group has at least
+  one top-five match. IDs within a group are alternatives. Its denominator is
+  the verified answerable questions with nonempty required groups, not every
+  question in the dataset.
+
+Aggregate retrieval metrics average eligible per-question values. Unverified
+and unanswerable cases are excluded. Missing or invalid multi-fact evidence
+groups raise errors. Duplicate retrieved IDs are rejected. `None` means
+excluded/unavailable, never a successful answer or a retrieval miss. Any run
+error withholds aggregates rather than inflating scores over successful cases.
+
+The separate optional answer mode adds structural citation-ID/page-label
+validity and a strict fixed-refusal-contract check for verified negatives.
+Citation validity does not prove claim support. Correctness and groundedness
+remain unscored pending manual comparison with reference answers, source
+excerpts, the original PDF, and retrieved passages. No string-equality proxy is
+reported as semantic correctness, and no LLM judge is implemented.
+
+CSV exports include full actual outputs/evidence, gold evidence, per-question
+scores, errors, and blank semantic-review fields with `needs_review` status.
+Reviewers can fill correctness, groundedness, reviewer notes, and review status
+in a copy of the CSV or add manual feedback in LangSmith. Human scores should
+remain separate from deterministic structural checks. The ten recorded v1.0
+answer reviews and four migration spot checks remain historical observations.
+
+### Running and inspecting future experiments
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py prepare
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset baseline
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py ask --trace --question "What does the guide say about Patundas access?"
+```
+
+`prepare` is local-only. `upload` sends verified references only and is
+idempotent. `ask --trace` sends the selected development question and trace to
+LangSmith and can make a Gemini query-embedding and generation request; it was
+not run with a real Gemini model during this preparation milestone.
+
+The user subsequently approved all corrected labels, which are now `verified`.
+The gate still checks every selected case before upload or evaluation. Separate
+stable datasets preserve the approved development and held-out partitions:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset harder --split dev
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset harder --split held_out
+```
+
+The default is the development split. `--split held_out` is an explicit later
+choice. `--answers` opts into one generation request per selected question;
+without it, negative cases require later answer review and are not retrieved.
+The target runs once per case, sequentially. LangSmith and local CSV/Markdown
+exports use those same recorded outputs rather than repeating generation.
+Answer mode separately records the real top-five chat evidence and top-ten
+retrieval ranking, flagging any prefix difference rather than hiding it.
+
+Experiment prefixes default to `v11-<dataset>-<split>-dense-k10-<UTC timestamp>`;
+`--experiment` accepts a custom simple name. Metadata records Git commit,
+models, split, semantic dataset hash, uncached-query count before the run, and
+whether generation is enabled. Local artifacts go to
+`evals/experiments/<name>/results.csv` and `summary.md`; existing directories
+and original evaluation files are never overwritten. In LangSmith,
+the service may append a unique suffix to the prefix; local export folders use
+the requested prefix. For LangSmith experiments,
+the `--langsmith` flag opts into upload. In the UI, open Datasets & Experiments,
+select the named dataset and experiment, compare per-example feedback, and
+open its run trace. For standalone development tracing, open Tracing and the
+project named by `LANGSMITH_PROJECT`, then expand nodes, retriever, and model.
+
+### API usage, verification, and limitations
+
+Preparation made zero real Gemini requests: no query/document embeddings,
+answer generations, or LLM judges. LangSmith requests created/verified the old
+reference dataset and ingested/read a synthetic trace. Exact LangSmith request
+counts, billing, and elapsed costs were not recorded.
+
+Future retrieval-only runs need at most one new cached query vector per
+uncached answerable question: up to eight for development or 32 for held-out.
+With `--answers`, negatives are also queried, so those ceilings become 10 or 40,
+plus up to 10 or 40 logical generation requests respectively. SDK retries can
+add HTTP attempts; no claim about billed token totals is made. Cached query
+vectors are reused, and missing query embeddings require explicit
+`--allow-query-embeddings`. The document index is reused unchanged. LangSmith
+workspace quotas/billing are separate; no automatic LLM/UI judge was configured.
+
+Focused synthetic checks passed metric rank boundaries 1/5/6/10/11, alternate
+and missing evidence groups, draft/negative/error exclusion, citation-page
+mismatches, strict refusal, unset semantic scores, LangSmith evaluator function
+signatures, CSV/Markdown export, split/source integrity, and approval gates
+before network access. Original benchmark hashes still match. Local verification
+records are under ignored `data/langsmith-preparation/`.
+
+Held-out access is a documented workflow discipline, not an access-control
+system. Approved labels can still contain errors. Structural citation
+and exact refusal checks are narrow proxies; broader answer quality remains
+manual. No new harder-set scores are available, and no public-user conversation
+was uploaded. The approval and synchronization milestone is recorded below.
+
+### Approved split synchronization
+
+Following explicit user approval, validation passed for all 50 unique questions,
+40 answerable and 10 unanswerable, all 97 exact source excerpts and physical
+pages, existing gold IDs, evidence groups, and disjoint split gold sets. Only
+verification statuses and approval notes changed in the reviewed JSON; all
+questions, reference answers, splits, gold IDs, pages, and groups were preserved.
+All 50 labels are now `verified`, and the review Markdown was regenerated.
+
+| Private LangSmith dataset | Split | Answerable | Unanswerable | Examples | Status |
+|---|---|---:|---:|---:|---|
+| `north-tours-v1-1-dev` | `dev` | 8 | 2 | 10 | Verified, synchronized |
+| `north-tours-v1-1-heldout` | `held_out` | 32 | 8 | 40 | Verified, synchronized |
+
+The uploader uses stable per-example UUIDs derived from dataset ID and question
+ID. It refuses mismatched references or unexpected examples, reuses matching
+examples, and reads back every saved input, reference output, and required
+metadata field. Remote native split membership was also checked. Both datasets
+matched the approved local snapshot exactly; synchronization errors: zero.
+Category, reference answer, gold IDs, source pages/excerpts, evidence groups,
+verification status, split, and source hash are retained.
+
+The historical 25-example LangSmith dataset had identical fingerprints before
+and after synchronization. Local v1.0 artifacts and scores remained unchanged.
+Synchronization ran with tracing explicitly disabled and did not invoke the
+retriever, Gemini, answer generation, or either benchmark. No held-out tuning,
+push, or deployment occurred. No credentials were logged, and public-chat
+tracing remains disabled. This milestone ends with dataset synchronization;
+conversation-memory work has not started.
+
+Official references: [LangSmith tracing control](https://docs.langchain.com/langsmith/trace-without-env-vars),
+[dataset management](https://docs.langchain.com/langsmith/manage-datasets-programmatically),
+and [code evaluator/experiment interfaces](https://docs.langchain.com/langsmith/evaluate-llm-application).

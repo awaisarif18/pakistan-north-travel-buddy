@@ -8,7 +8,7 @@ import streamlit as st
 from google.genai import errors
 
 from rag import TRAVEL_NOTICE, page_label
-from workflow import build_workflow, chat_model, open_retriever
+from workflow import build_workflow, chat_model, open_retriever, run_question
 
 st.set_page_config(page_title="Pakistan North Tours AI", page_icon="🏔️", layout="wide")
 st.html(f"<style>{Path(__file__).with_name('ui.css').read_text(encoding='utf-8')}</style>")
@@ -129,7 +129,7 @@ if question:
         with st.container(key="chat_assistant_pending"):
             with st.chat_message("assistant", avatar=":material/landscape:"):
                 with st.spinner("Searching the guide…"):
-                    result = workflow.invoke({"question": question})
+                    result = run_question(workflow, question, trace=False)
                     matches, answer = result["matches"], result["answer"]
         message = {"role": "assistant", **answer, "matches": matches}
         st.session_state.messages.extend([{"role": "user", "text": question}, message])

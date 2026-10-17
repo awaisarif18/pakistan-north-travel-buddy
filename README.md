@@ -99,10 +99,12 @@ not installed. The Gemini integration requires the SDK upgrade; the separate
 local v1.1 virtual environment preserves the working v1.0 environment.
 
 Optional LangSmith tracing reads `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, and
-`LANGSMITH_PROJECT` from your private environment. The final local environment
-has tracing enabled through user-supplied settings; tracing is not required
-for retrieval or answer generation. Keep real tracing keys private, like the
-Gemini key. No tracing configuration was deployed to the live v1.0 app.
+`LANGSMITH_PROJECT` from your private environment. The template defaults to
+`LANGSMITH_TRACING=false`; development commands require an explicit `--trace`
+or `--langsmith` flag to upload traces/results. Streamlit calls the workflow
+with tracing forced off, even if the environment flag is true. Keep real
+tracing keys private, like the Gemini key. No tracing configuration was
+deployed to the live v1.0 app.
 
 ## Evaluation methodology and results
 
@@ -184,6 +186,86 @@ citations. These selected checks do not replace the original ten-answer review.
 Graph order, invalid citation rejection, cached embedding request formatting,
 and Streamlit startup/submit/reset passed focused checks. No document embeddings
 or real query embeddings were generated during verification.
+
+### LangSmith tracing and the approved v1.1 datasets
+
+The private LangSmith dataset `pakistan-north-v1-verified-25` contains the existing
+25 verified references. [Its local JSONL export](evals/langsmith_baseline.jsonl)
+retains labels, answers, gold IDs/pages, and excerpts. Importing it did not run
+retrieval or recalculate the historical scores.
+
+The [50-question reviewed benchmark](evals/questions_v1_1.json) has 40 answerable and
+10 unanswerable questions. Review it in the [expandable gold-evidence sheet](evals/review_v1_1.md).
+Development has 8 answerable + 2 unanswerable questions; held-out has 32 + 8.
+All 50 labels are `verified` after independent review and explicit user approval.
+The private LangSmith datasets `north-tours-v1-1-dev` and
+`north-tours-v1-1-heldout` contain 10 and 40 examples respectively. Remote
+inputs, reference outputs, metadata, and split membership match the approved
+local dataset. Gold chunk IDs are disjoint between splits,
+but all questions still use the same PDF and share topics with the old benchmark.
+Neither import nor evaluation accepts unverified labels. No harder-set scores
+or answer-quality scores have been generated.
+
+The benchmark is intentionally multi-fact-heavy: 38/40 answerable questions are
+`multi_fact`. Of those, 21 have one required evidence group and 17 have two.
+Keep aggregate CompleteEvidence@5, but also plan a separate multi-passage
+result restricted to questions requiring at least two distinct evidence groups.
+One-chunk multi-fact coverage does not demonstrate multi-passage retrieval.
+These subgroup results are planned, not measured; the v1.0 scores above remain unchanged.
+All 17 two-group cases are held-out after the requested split rebalance. The
+development multi-passage subgroup is empty and should be reported as unavailable.
+
+Development commands use the existing `.env` without printing credentials:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py prepare
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset baseline
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset harder --split dev
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py upload --dataset harder --split held_out
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py ask --trace --question "What does the guide say about Patundas access?"
+```
+
+`prepare` is local-only. Upload is idempotent and refuses mismatched remote
+references instead of overwriting them. `ask --trace` explicitly sends that
+development question, retrieved passages, and generated answer to the configured
+LangSmith project; it is not used by the public chat interface. Missing tracing
+credentials cause a clear configuration error.
+
+For a separately authorized future run, these commands evaluate the development
+split locally or create a LangSmith experiment with the same local exports.
+Synchronization did not run either benchmark:
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py evaluate --dataset harder --split dev --allow-query-embeddings
+.\.venv-v1.1\Scripts\python.exe langsmith_eval.py evaluate --dataset harder --split dev --langsmith --allow-query-embeddings
+```
+
+`--split held_out` explicitly selects the held-out cases. Keep them out of
+tuning until development decisions are frozen. `--answers` additionally opts
+into one generation request per question, including negative cases. Without
+it, negatives are unscored and do not trigger retrieval. Cached query vectors
+are reused; `--allow-query-embeddings` explicitly allows missing query vectors,
+never document re-embedding. No LLM judge is implemented or automatically run.
+
+Code-based evaluators report Hit@1, Hit@5, MRR@10 and CompleteEvidence@5 for
+eligible verified positives. CompleteEvidence@5 uses reviewed evidence groups;
+unanswerable cases are excluded. Any run error withholds aggregate scores.
+Answer mode adds structural citation validity and strict fixed-refusal checks.
+Answer correctness and groundedness remain unscored until manual PDF review;
+valid citation syntax alone is not evidence of semantic support.
+
+In [LangSmith](https://smith.langchain.com/), open **Tracing** and select your
+`LANGSMITH_PROJECT` to inspect node, retriever, and model spans. A synthetic trace
+named `synthetic-dev-trace-no-gemini` was verified with a mocked Gemini response.
+For future experiments, open **Datasets & Experiments**, choose the dataset and
+experiment, and inspect per-example scores, actual outputs, references, and traces.
+Experiment prefixes default to `v11-<dataset>-<split>-dense-k10-<UTC timestamp>` and record
+commit/model/source metadata. CSV and Markdown exports go to
+`evals/experiments/<experiment-name>/`; they never overwrite the original files.
+LangSmith may append a unique suffix to the experiment prefix; local exports use the prefix.
+Manual correctness/groundedness fields and reviewer notes are left blank for review.
+See Stage 9 of the [project report](docs/PROJECT_REPORT.md) for formulas, API usage,
+privacy checks, and limitations.
 
 ## Local installation and usage
 
