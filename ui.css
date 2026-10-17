@@ -34,6 +34,10 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pine) !importan
 .sidebar-brand span { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 0.15rem; line-height: 1.5; }
 .st-key-clear_chat button { min-height: 46px; border-radius: 13px; border: 1px solid #ccdcd0; background: #fbfdfb; color: var(--pine); box-shadow: 0 2px 4px #20372c03; }
 .st-key-clear_chat button:hover { border-color: var(--pine); background: #fff; }
+.st-key-app_view { margin-bottom: 1rem; }
+[data-testid="stSidebar"] [data-testid="stLinkButton"] a { border-radius: 12px; border-color: #ccdcd0; background: #fbfdfb; color: var(--pine); font-size: 0.8125rem; }
+[data-testid="stForm"] { border: 1px solid var(--line); border-radius: 20px; background: #ffffffb3; padding: 1.2rem; }
+[data-testid="stFormSubmitButton"] button { border-radius: 13px; color: var(--pine); border-color: #ccdcd0; background: var(--soft); }
 .sidebar-section { border-top: 1px solid var(--line); padding-top: 2rem; margin-top: 2rem; }
 .eyebrow { font-size: 0.6875rem; line-height: 1.5; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase; color: var(--muted); }
 .sidebar-section h2 { font-size: 1.5rem; line-height: 1.3; letter-spacing: -0.02em; margin: 0.8rem 0; }

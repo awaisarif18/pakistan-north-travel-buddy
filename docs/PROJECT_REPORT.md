@@ -1569,3 +1569,364 @@ deployment, document embedding, or full LangSmith benchmark was performed.
 The deployed v1.0 app remains unchanged. Future deployment must explicitly
 set `GEMINI_CHAT_MODEL` and the unified `GENERATION_*` configuration in
 Streamlit Secrets, then restart to recreate cached clients and counters.
+
+## Stage 14: feedback, early testers, and personalized trip planning
+
+### Existing components retained
+
+Work continued on `feature/v1.1-langgraph` from commit `b8f1d53`. The model,
+retrieval algorithms, 49 document vectors, embedding prefixes/dimensions/cache,
+old/new gold labels, historical retrieval scores, and existing usage limiter
+were retained. No dependencies, authentication, email database, booking API,
+or separate service was added. The deployed v1.0 and `main` were not changed.
+
+### Feedback and early tester entry points
+
+The sidebar now contains Send Feedback and Help Test Future Releases. Both
+native Streamlit link buttons use the exact existing responder URL
+`https://forms.gle/5McdABdSnigwwdNz5`. `FEEDBACK_FORM_URL` can override it via
+`.env` or future Streamlit Secrets. The app appends no history, questions,
+preferences, email, identifiers, or keys. Feedback links remain accessible
+when chat/planner session quotas or shared generation capacity are exhausted.
+No automatic form submission or email action was implemented.
+
+The short form URL was unavailable through the web-reading tool, but a
+read-only HTTP request followed it to the Google Forms responder page with
+HTTP 200. Public form metadata includes explicit Yes/No consent, the tester
+privacy notice, a Yes route to a separate Email Collection section, a No route
+to submit, and an email field marked optional. The form also currently requires
+a Name field for general feedback. The application itself collects neither
+name nor email. No response was submitted during verification.
+
+Public metadata is not an admin-settings audit. The owner should manually
+confirm automatic email collection is disabled, sign-in is not required,
+No submits without email, Yes displays the email section, and invitations use
+only explicit opt-ins. Google Forms and its linked Sheet own response storage.
+There is no newsletter, email database, signup, or mailing automation, and no
+tester response/email integration with LangSmith.
+
+### Planner workflow and UI
+
+A sidebar Chat / Plan a Trip selector preserves the existing chat UI and makes
+the new form directly accessible. The form asks departure city and region,
+1-10 total days, transport, budget style, interests, and optional month. City
+and region fields are limited to 80 characters; days and options are validated;
+at least one listed interest is required. Total days include outward and return
+travel. Results remain in the requesting Streamlit session across reruns.
+
+`planner.py` defines typed trip state and this bounded LangGraph:
+
+```mermaid
+flowchart LR
+    S[START] --> V[Validate preferences]
+    V --> P[Prepare information needs]
+    P --> R[Retrieve trip evidence]
+    R --> G[Generate structured itinerary]
+    G --> C[Validate evidence and days]
+    C --> E[END]
+```
+
+The frontend renders overview, day cards, transport, accommodation, budget,
+season/safety guidance, limitations, and the existing expandable source cards.
+The existing travel-information warning remains visible. No tools or loops
+were added. The compiled planner is stateless without a checkpointer; it does
+not share conversations or outputs across users. A failed new submission
+leaves the last successful outline visibly labelled by its destination.
+
+The frozen development benchmark selected dense retrieval. The planner reuses
+`workflow.open_retriever(mode="dense")` with three deterministic queries for
+route/road/fuel, attractions/stays/costs, and seasonal restrictions. Each returns
+five passages with original IDs. Interleaving the three lists gives each need
+representation; deduplication and a 12-passage cap bound context. This is not a
+change to per-query similarity rankings or the chat retrieval modes. Text comes
+from persisted Chroma, not the PDF/chunks file at runtime.
+
+One existing Gemini 3.5 Flash Lite client produces native structured output.
+It uses the existing 1,800-token answer limit and one-attempt retry settings.
+There is no LLM query preparation, planner rewrite, or automatic repair call.
+The output schema has complete/partial/unsupported status, cited overview,
+numbered days, topical guidance, and limitations. Python rejects unknown source
+IDs, invalid/consecutive day numbering, excess days, and empty day activities;
+it derives citations through the existing metadata-based formatter. Missing
+guidance or incomplete day coverage yields a partial plan. No evidence skips
+generation and explains the missing support.
+
+The planner instruction allows suggested schedules assembled from documented
+places and durations. It explicitly preserves recommended multi-day trek
+lengths, does not assume a 4x4 upgrade for a Car preference, and avoids current
+access/weather/booking claims. These rules reduce observed errors but do not
+constitute a deterministic geography or feasibility solver.
+
+### Existing quota integration
+
+Preferences are validated before admission. The UI then uses the existing
+`trip_plan` action and explicitly reserves `generation: 1, embedding: 3` before
+retrieval or model work. Each actual Gemini invocation passes through the
+existing shared boundary hooks. Cached queries and unused generation slots are
+released without charge. One form submission consumes one planner request;
+reruns display the stored output without replaying it. Clearing chat does not
+reset either quota, and sessions have independent records.
+
+The policy remains 3 chats and 1 plan per rolling hour, 12-second cooldown,
+700-character chat input, 2 concurrent workflows, and 3 starts/minute. Generation
+has one shared Flash Lite bucket of 10 attempts/minute and 300/Pacific day;
+embeddings remain separate at 30/minute and 300/Pacific day. DST-aware Pacific
+resets, conservative input estimates, 429 messages, and process backoff remain
+unchanged. These are volatile process-local safeguards, bypassable by browser
+session replacement and reset by process restart, not guaranteed project-wide
+or unique-user quotas.
+
+### Executed verification and observed corrections
+
+[Controlled cases](../evals/trip_cases.json) cover Gilgit-Hunza motorbike/nature/
+trekking, local Skardu car/sightseeing, and a one-day Islamabad-Hunza winter
+motorbike trip. The [planner review](../evals/trip_planner_review.md) preserves
+actual outputs, source checks, caveats, API usage, and private development trace
+links. The coding assistant compared final responses with original physical PDF
+pages and retrieved source metadata. No LLM judge was used.
+
+The initial Hunza output over-refused despite useful source facts; the initial
+Skardu output assumed a 4x4 excursion under Car preference. Planner instructions
+were corrected to allow grounded composition and preserve transport preference.
+A second Hunza draft compressed the guide's three-day Rakaposhi trek into two
+and overstated seasonal accessibility. An additional focused Hunza recheck,
+after explicit trek-duration/season instructions, allocated two days up and
+one down with outward/return riding separately. All failed drafts remain
+recorded. Retrieval algorithms, queries, embeddings, and rankings were not tuned.
+
+| Actual check | Result |
+|---|---|
+| Feedback/tester links | Both exact configurable URL, no user-data prefill; HTTP 200 verified. |
+| Hunza motorbike | Final useful partial outline, three trek days, source-supported stays/fuel/season guidance; timings and total costs remain uncertain. |
+| Skardu sightseeing | Revised useful partial outline with citations; no assumed Deosai jeep day. Some extra Islamabad transport prose remains irrelevant to the chosen origin. |
+| Unrealistic trip | No invented day itinerary; source-supported travel-time/season explanation. |
+| Citation references | IDs exist in retrieved evidence, pages derived from stored metadata; invalid IDs rejected in mocks. |
+| Planner quota | One request admitted, second denied with no new workflow/model call. |
+| Shared capacity | Existing generation budget blocks planner admission; links stay available. |
+| Reruns/input | No duplicate model calls; invalid preferences consume no planner quota. |
+| Sessions/reset | Output and subject records isolated; clearing chat preserves planner allowance. |
+| Existing chat | All usage checks and seven controlled conversation scenarios pass. |
+| Index | Copied snapshot opens with 49 vectors; original index files unchanged. |
+| Privacy | Public planner tracing disabled despite ambient opt-in; only synthetic development cases traced. |
+
+The initial three cases used 3 generations and 9 new query embeddings. A second
+three-case check used 3 generations and cached embeddings only. The focused
+Hunza correction used 1 generation and no new embeddings. Total actual usage
+was **7 generation attempts, 9 query embeddings, and 0 document embeddings**.
+No full retrieval/LangSmith benchmark or held-out run was repeated.
+
+Selected final generation latencies were 4.753 seconds for Hunza, 3.274 seconds
+for Skardu, and 1.956 seconds for the unrealistic-trip explanation. They measure
+single LangChain invocation wall time, not isolated provider time or an average.
+Skardu and the unrealistic case were not regenerated after the final trek-only
+prompt change. All final reviewed plans are partial, not complete certified routes.
+
+Seven controlled development traces were uploaded and then inspected remotely.
+All five expected graph nodes were present, each trace contained one generation
+span, and technical trace errors were zero. That execution result is separate
+from the manual quality failures noted above. The traces were scanned for actual
+configured secret values, with none found. Deterministic citation-ID feedback and
+manual review statuses were attached to these synthetic traces. No real public
+conversation or tester response was uploaded, and no new benchmark dataset or
+LLM judge was created.
+
+### Commands, files, and readiness
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe -m streamlit run app.py
+.\.venv-v1.1\Scripts\python.exe verify_planner.py
+.\.venv-v1.1\Scripts\python.exe verify_usage.py
+.\.venv-v1.1\Scripts\python.exe verify_conversation.py
+```
+
+`review_planner.py --trace` is an explicit API-consuming developer review only.
+It refuses to overwrite saved results. Revision/case options were used only
+for the observed corrections above, not a held-out benchmark. Public calls
+always use `trace=False`.
+
+Added `planner.py`, `planner_ui.py`, `verify_planner.py`, `review_planner.py`,
+`evals/trip_cases.json`, and `evals/trip_planner_review.md`. Updated `app.py`,
+`ui.css`, `.env.example`, README, and this report. Raw review, form inspection,
+source pages, copied index, and preservation evidence stay under ignored
+`data/planner-checks/`. No dependencies were added.
+
+This milestone is ready for feature review, not a claim of production route
+correctness. Remaining checks are owner verification of form settings/consent
+routing and broader human review of other routes. Planner feasibility remains
+model-dependent, costs/conditions can be outdated, and citations do not prove
+every generated claim. No commit, push, merge, or v1.1 deployment was performed.
+
+## Stage 15: v1.1.0 final verification and release preparation
+
+### What's New in v1.1.0
+
+The release candidate combines LangChain Gemini/prompt/document/retriever
+interfaces, a typed LangGraph chat, session memory and conditional follow-up
+rewriting. It adds optional LangSmith development tracing and reviewed harder
+evaluations, dense/BM25/hybrid retrieval, the benchmark-selected dense default,
+shared Flash Lite usage safeguards, existing-form feedback/tester links, and
+personalized cited trip outlines. Gemini 3.5 Flash Lite is the sole configured
+text model; Gemini Embedding 2 and the original 49 vectors are preserved.
+
+The next work should broaden independent evaluation coverage, strengthen
+itinerary feasibility checks, and introduce durable account quotas only if
+usage warrants them. Live weather/bookings, authentication, neural reranking,
+durable quota storage, and email automation are not implemented.
+
+### Foundation and saved benchmark audit
+
+The committed deployment snapshot and a copy of the working index both opened
+with exactly 49 vectors and the original logical fingerprint
+`394c832e5e8bee68fa9f85fca85d97421081139d29838e162be5fe30e2c21dc6`.
+It covers sorted chunk IDs, documents, metadata, and every embedding value.
+All chunk-ID page ranges match their metadata and stay within the 92 physical
+pages. The original index files were never opened for audit; only copies were
+opened. Two pre-existing local index storage-file differences are excluded
+from the release commit. No document vector was rebuilt or regenerated.
+
+The original evaluation JSON, CSV, summary, answer review, ingestion, and
+legacy evaluation code match `main` after normalizing checkout line endings.
+All 50 harder labels remain verified, with 10 dev questions, 40 held-out
+questions, and disjoint gold chunk sets. All current supporting excerpt records
+were checked against their stored passages and page ranges. Remote LangSmith
+examples were read back without modification: 10 in `north-tours-v1-1-dev`
+and 40 in `north-tours-v1-1-heldout`, with exact local inputs/references and
+verified metadata.
+
+All 150 saved method/question outputs match their CSV exports. Their retrieved
+text and page metadata match the original collection. Hit@1, Hit@5, MRR@10,
+CompleteEvidence@5, multi-passage coverage, denominators, and measured median/
+mean latencies were independently recalculated from saved rankings, not from
+new retrieval. Aggregate JSON values agree. Dense was frozen from the tied dev
+results before the held-out comparison, not chosen by tuning against held-out.
+
+| Held-out method | Hit@1 | Hit@5 | MRR@10 | CompleteEvidence@5 | Median ms |
+|---|---:|---:|---:|---:|---:|
+| Dense | 0.9375 | 1.0000 | 0.9688 | 0.9677 | 58.655 |
+| BM25 | 0.8750 | 1.0000 | 0.9323 | 0.9355 | 0.839 |
+| Hybrid | 0.9375 | 1.0000 | 0.9635 | 0.9677 | 58.479 |
+
+The denominators remain 32 answerable held-out cases and 31 eligible complete-
+evidence cases. All methods miss a required group at top five on h36; BM25
+also misses complete coverage on h20. h08 improves first-gold rank under
+keyword/fusion retrieval. Dense/hybrid differences are too small to establish
+statistical superiority. Cached local latency excludes query-vector generation
+and upload; it is not hosted latency. Original v1.0 scores remain Hit@5 1.0000,
+MRR@10 0.9667, CompleteEvidence@5 1.0000 on different questions. No benchmark,
+held-out retrieval, or original evaluation was rerun.
+
+### Focused Skardu wording correction
+
+One new live generation scoped the Skardu transport instruction to the selected
+origin. It removed Islamabad flights/buses, but still asserted local standard-
+car suitability without sufficient evidence. That recommendation was not
+accepted. For Car requests starting and ending in the same city, a small
+presentation guard now replaces generated Transport prose with an explicit
+static-guide access/vehicle-suitability limitation. Cited guide estimates in
+day cards remain unchanged.
+
+The saved native response was replayed through final validation after this
+correction: day cards stayed unchanged, cited IDs remained valid, and neither
+the unrelated approach advice nor the unsupported paving claim appeared in
+Transport guidance. Planner mocks also exercise the guard. A valid source ID
+does not prove route feasibility; all real-reviewed plans remain partial and
+require human judgment. Existing source-supported stay/budget figures are
+estimates with the unchanged outdated-information warning.
+
+This audit consumed exactly **1 generation attempt and 0 embeddings**. The
+cumulative planner checks now total **8 generation attempts, 9 query embeddings,
+and 0 document embeddings**, including the failed drafts preserved in the
+planner report. The focused generation took 4.262 seconds. No LLM judge was
+used. Its trace is a controlled synthetic-preference development trace, distinct
+from the actual retrieval benchmark experiments. Production tracing remains
+explicitly disabled for both chat and planning.
+
+### Executed regression and privacy checks
+
+The existing seven conversation scenarios were rerun successfully, including
+standalone queries, follow-ups, destination switching, clear, unrelated queries,
+session isolation, and rerun behavior. Citation rejection, unsupported refusal,
+and production trace opt-out also pass. `verify_usage.py` passed rolling session
+limits, one-plan allowance support, cooldown, input length, concurrency, duplicate
+submission rejection, no quota reset on clear, model-boundary counting, denied-
+request zero-call behavior, friendly 429 handling, and Pacific DST/day rollover.
+`verify_planner.py` passed its graph, quota, and Streamlit groups after the
+transport correction. These mocked suites made zero real Gemini calls.
+
+The policy remains 3 chats and 1 plan per rolling hour, 12-second cooldown,
+700-character chat questions, 2 concurrent workflows, and 3 workflow starts/
+minute. Chat rewriting, answers, and plans share 10 generation attempts/minute
+and 300/Pacific day. Embeddings are separate at 30/minute and 300/Pacific day.
+Actual attempts, including failures, are charged at invocation boundaries;
+unspent reservations return. Process restarts and replicas prevent durable or
+project-wide enforcement, and anonymous session replacement bypasses per-session
+limits. No new infrastructure or authentication was added.
+
+The form again returned HTTP 200. Both app links use the exact existing public
+responder URL without user-data prefill. Public metadata shows explicit Yes/No
+invitation consent, a Yes route to the email section, a No route to submit, and
+an optional email field. The owner explicitly confirmed Name was intentionally
+required and requested publication with that choice. This resolves the audit's
+anonymous-name concern: describe it as general named feedback without an email
+requirement. No form response or invitation was sent during this audit.
+
+Owner checks of automatic Google email collection, sign-in requirements, and
+both consent branches remain necessary before tester invitations. Public
+metadata is not an admin-settings audit. The app stores no tester emails and
+uploads no feedback to LangSmith. These owner checks are recorded limitations,
+not a request to remove the owner's intentional Name field.
+
+### Clean deployment compatibility
+
+A fresh isolated WSL Ubuntu Python 3.12.3 environment installed all 12 pinned
+requirements. `pip check` passed there and in the existing development venv.
+The initial local venv setup lacked Ubuntu `ensurepip`; the audit used a bundled
+universal pip wheel to bootstrap only its isolated environment, without changing
+system packages. A slow install on the Windows-mounted filesystem was stopped
+and repeated from cached packages in a native Linux filesystem environment.
+No production or project dependency was added for these audit tools.
+
+An isolated runtime directory contained only app/CSS/backend/planner files,
+requirements/theme, and the complete committed Chroma snapshot. It contained no
+original PDF, extraction files, query cache, `.env`, evals, tests, or development
+scripts. Placeholder-only root Streamlit Secrets exported the required model
+configuration and key. LangChain/LangGraph/planner imports, dense/BM25/hybrid
+initialization, a BM25 offline query, initial chat render, planner form render,
+and planner graph initialization all passed. Index count and original fingerprint
+also passed. SDK generation/embedding and LangSmith uploads were patched to fail
+if invoked; all stayed at zero.
+
+This verifies Linux-compatible repository-relative paths and startup without
+development assets. It is not a hosted Streamlit Cloud cold-restart test or live
+Gemini credential test. Existing responsive CSS and native form/day-card layout
+were retained; Streamlit AppTest checks structure and exceptions, not physical
+phone screenshots. Cloud deployment should select Python 3.12 and `app.py`,
+provide a real key in Streamlit Secrets, retain the theme and all index files,
+and keep public tracing disabled.
+
+### Release-readiness classification
+
+| Component | Status and evidence | Remaining issue classification |
+|---|---|---|
+| LangChain/LangGraph and memory | Code plus seven conversation scenarios pass. | No code blocker. |
+| Index and v1.0 history | Original 49-vector fingerprint, page metadata, and canonical main artifacts match. | Pre-existing local storage differences remain excluded. |
+| Retrieval | 150 saved outputs/CSVs/aggregates agree; dev/held-out stay separate. | Non-blocking: small curated benchmark and known h36/h20 misses. |
+| Models and limits | Shared Flash Lite guard, separate embeddings, fake-clock/concurrency/429/DST tests pass. | Non-blocking: volatile process-local enforcement. |
+| Planner | Mock suites plus focused saved-response replay pass; partial outputs and citations retained. | Non-blocking: model-dependent scheduling, no route feasibility guarantee. |
+| LangSmith | Actual retrieval experiments distinguished from synthetic dev traces; 50 approved remote examples match. | Non-blocking: private links require workspace access. |
+| Feedback/testers | Exact native links, no prefill, public consent/email metadata inspected; owner accepts Name requirement. | Non-blocking owner check: admin collection/sign-in and end-to-end branch settings. |
+| Deployment | Clean Linux Python 3.12.3 imports/index/UI/secrets-placeholder checks pass. | Non-blocking: hosted v1.1 verification waits for deployment approval. |
+| Security | Complete branch/current-file scan, staged-path exclusions, no credentials/tester responses/temp copies. | No detected release blocker. |
+| Roadmap | Broader independent cases, stronger feasibility checks, durable account quotas. | Future enhancements, not implemented. |
+
+Prepared `docs/RELEASE_v1.1.0.md` for the GitHub release titled
+`v1.1.0 ? Conversational RAG & AI Trip Planning`. README contains the same
+release overview while preserving v1.0 history and benchmark methods. Audit
+scripts/results, runtime copies, placeholder secrets, and temporary environments
+remain outside the commit under ignored audit paths or the local Linux cache.
+No destructive cleanup of protected files was attempted.
+
+Completed source, focused tests, and reports are prepared for the feature-branch
+commit and push. Merging into `main`, creating a release tag, publishing the
+GitHub release, and deploying v1.1 remain behind the user's final approval gate.
+No v1.1 hosted URL is claimed; the current live application remains v1.0.

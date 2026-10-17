@@ -17,6 +17,7 @@ st.set_page_config(page_title="Pakistan North Tours AI", page_icon="🏔️", la
 st.html(f"<style>{Path(__file__).with_name('ui.css').read_text(encoding='utf-8')}</style>")
 
 MOUNTAIN = '<span class="mountain-icon" aria-hidden="true"><i></i><b></b></span>'
+FEEDBACK_URL = os.getenv("FEEDBACK_FORM_URL", "").strip() or "https://forms.gle/5McdABdSnigwwdNz5"
 EXAMPLES = [
     ("Khunjerab fuel stops", "local_gas_station", "Where should I refuel before traveling to Khunjerab Pass?"),
     ("Rakaposhi trekking season", "hiking", "What is the best season for Rakaposhi Base Camp?"),
@@ -112,6 +113,7 @@ def empty_state():
 with st.sidebar:
     st.html(f'<div class="sidebar-brand"><div class="brand-mark">{MOUNTAIN}</div>'
             '<div><strong>North Tours</strong><span>Your Pakistan travel companion</span></div></div>')
+    view = st.radio("Explore", ["Chat", "Plan a Trip"], key="app_view", label_visibility="collapsed")
     if st.button("New conversation", icon=":material/edit_square:", key="clear_chat", use_container_width=True):
         st.session_state.pop("conversation", None)
         st.session_state.pop("pending_submission", None)
@@ -124,10 +126,18 @@ with st.sidebar:
     with st.expander("About this companion", icon=":material/info:"):
         st.write("Answers come from your Pakistan North Tours guide. Open the source evidence beneath an answer to read the passages behind it.")
         st.caption("Ask follow-up questions about your current destination. Context uses the last four exchanges and resets with a new conversation.")
+        st.link_button("Help Test Future Releases", FEEDBACK_URL, icon=":material/science:", use_container_width=True)
+        st.caption("Volunteer through the form. Only opt in and provide an email if you want future testing invitations.")
+    st.link_button("Send Feedback", FEEDBACK_URL, icon=":material/rate_review:", use_container_width=True)
+    st.caption("Opens Google Forms. Your chat and trip details are not sent automatically.")
     st.html('<p class="sidebar-note">For thoughtful planning.<br>Always check local conditions before you go.</p>')
 
 st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'
         '<span class="workspace-tag"><i></i> Your guide to the north</span></header>')
+if view == "Plan a Trip":
+    from planner_ui import show_planner
+    show_planner(limiter, show_answer)
+    st.stop()
 try:
     if "conversation" not in st.session_state:
         st.session_state.conversation = (str(uuid4()), build_workflow(*resources(), checkpointer=InMemorySaver()))

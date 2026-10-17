@@ -8,6 +8,43 @@ The application retrieves information from a 92-page Northern Pakistan travel gu
 to LangChain and LangGraph, with session-scoped conversational memory. The live demo, `main`, and tag `v1.0.0`
 remain on the stable v1.0 implementation. This migration has not been deployed.
 
+## What's New in v1.1.0
+
+The v1.1 release candidate adds LangChain model/retrieval interfaces and a typed
+LangGraph conversation workflow with session memory and conditional follow-up
+rewriting. Gemini 3.5 Flash Lite handles rewriting, answers, and trip outlines;
+Gemini Embedding 2 and all 49 original Chroma vectors remain unchanged.
+
+- Optional development-only LangSmith traces and reviewed 10-question development / 40-question held-out datasets.
+- Dense, BM25, and hybrid RRF retrieval, with saved rankings and a frozen comparison. Dense remains the benchmark-selected default.
+- Shared generation/embedding safeguards, rolling session quotas, DST-aware Pacific days, and friendly capacity messages. These counters are volatile and bypassable, not durable per-user enforcement.
+- Existing Google Forms feedback and tester-consent links, plus a source-cited personalized trip planner with partial-plan handling.
+
+| Held-out method | Hit@1 | Hit@5 | MRR@10 | CompleteEvidence@5 | Median retrieval ms |
+|---|---:|---:|---:|---:|---:|
+| Dense | 0.9375 | 1.0000 | 0.9688 | 0.9677 | 58.655 |
+| BM25 | 0.8750 | 1.0000 | 0.9323 | 0.9355 | 0.839 |
+| Hybrid RRF | 0.9375 | 1.0000 | 0.9635 | 0.9677 | 58.479 |
+
+The harder benchmark has 32 answerable held-out questions and 31 eligible
+CompleteEvidence cases. Development scores tied across all methods; dense won
+the predeclared tie-break before held-out execution. Small samples, saturated
+Hit@5, and one-pass cached latency do not establish broad superiority. Detailed
+[methods, failures, and experiment links](evals/experiments/hybrid-v11-20261017/summary.md)
+remain separate from the preserved v1.0 results.
+
+The planner's final audit narrows local-car transport guidance to an explicit
+road-access limitation instead of unverified suitability claims. Day cards
+retain source-based estimates. Broader route feasibility still needs human
+review; citations validate references, not every claim. Next priorities are
+independent varied evaluation cases, stronger feasibility checks, and durable
+account-based quotas if the demo grows. Those features are not implemented.
+
+See the [prepared release notes](docs/RELEASE_v1.1.0.md),
+[planner review](evals/trip_planner_review.md), and
+[technical report](docs/PROJECT_REPORT.md). This branch is a release candidate;
+`main` and the live v1.0 deployment remain unchanged until approval.
+
 ## Live demo and source code
 
 **[Open the live demo](https://pakistan-north-travel-ai.streamlit.app/)** · **[View the source on GitHub](https://github.com/awaisarif18/pakistan-north-travel-buddy)**
@@ -31,6 +68,7 @@ remain on the stable v1.0 implementation. This migration has not been deployed.
 - Generates concise answers with Gemini 3.5 Flash Lite on v1.1. The deployed v1.0 still uses Gemini 3.8 Flash. Python validates selected source identifiers and attaches page citations from stored metadata.
 - Exposes retrieved passages in expandable source cards and refuses questions unsupported by the supplied evidence.
 - Provides a responsive Streamlit chat interface with six example prompts, conversation display, and a reset option.
+- On v1.1, adds a source-grounded trip planner and sidebar links for feedback and optional future testing.
 - Caches query embeddings to avoid repeat embedding calls for identical questions and configuration.
 - Includes a reviewed 25-question retrieval dataset, three retrieval metrics, and a separate recorded answer-quality review.
 - Runs publicly on Streamlit Community Cloud using a bundled prebuilt index, without ingestion at startup.
@@ -329,13 +367,82 @@ privacy checks, and limitations.
 
 ## Local installation and usage
 
+### Feedback and early testers on v1.1
+
+**Send Feedback** and **Help Test Future Releases** in the sidebar open the
+same [existing Google Form](https://forms.gle/5McdABdSnigwwdNz5) in a new tab.
+Set `FEEDBACK_FORM_URL` in `.env` or future Streamlit Secrets to configure it.
+Links remain available when AI quota is exhausted. The app adds no prefilled
+prompts, conversation history, trip details, identifiers, email, or keys.
+
+The public form shows Yes/No tester consent with a privacy notice and an
+optional email field in a separate section. Feedback does not require joining
+the tester program. Google Forms and its linked Sheet store responses; the app
+has no email database, signup, invitation automation, or LangSmith response
+upload. Owner checks remain: verify automatic email collection/sign-in settings
+and test both Yes/No branches before inviting testers. The form owner intentionally requires a Name field; the application does not
+collect one itself. General feedback does not require an email. This is named
+feedback, not a promise of fully anonymous submissions.
+
+### Personalized trip outlines on v1.1
+
+Choose **Plan a Trip** in the sidebar. Enter departure city, region, 1-10 total
+travel days, Motorbike/Car/Public Transport, budget style, interests, and an
+optional month. Travel days include outward and return journeys. Results show
+an overview, day cards, transport/stay/budget/season/safety guidance, missing
+information, and expandable PDF evidence. A partial plan is expected when the
+guide cannot establish all details. Daily groupings are suggestions, not
+confirmed driving schedules, bookings, current prices, or road-opening guarantees.
+
+```mermaid
+flowchart LR
+    A[Validate preferences] --> B[Prepare three information needs]
+    B --> C[Dense retrieval from existing Chroma]
+    C --> D[One structured Flash Lite itinerary]
+    D --> E[Validate day numbers and source IDs]
+    E --> F[Render itinerary and PDF evidence]
+```
+
+Dense was selected in the approved development benchmark. The planner makes
+three deterministic searches for route/safety, attractions/stays/costs, and
+seasonal restrictions. It interleaves the three top-five lists, deduplicates
+original IDs, and caps context at 12 passages. Chat retrieval modes and their
+rankings are unchanged. The planner needs neither the PDF nor chunks.json at
+runtime and never ingests documents.
+
+The existing limiter admits the request before retrieval/generation. One
+planner submission consumes the separate one-plan/hour session allowance and
+reserves at most one shared generation plus three embedding calls. Actual cache
+misses and generation attempts count at the existing boundaries. Reruns render
+the saved session output without regenerating it; other sessions have their own
+form/output and quotas. No planner conversation history or user database is added.
+
+[Planner development review](evals/trip_planner_review.md) records Hunza motorbike,
+Skardu sightseeing, and an unrealistic one-day winter trip. Seven real generation
+attempts and nine query embeddings were used, including two prompt corrections
+for observed over-refusal, vehicle mismatch, and trek compression. Final records
+contain useful partial outlines and an appropriate no-itinerary explanation for
+the unrealistic trip. All source IDs validate. These few cases do not establish
+broad route feasibility. The release audit replaces broad local-car transport
+prose with a clear current-access limitation. The report retains failed drafts
+and links to development traces.
+
+```powershell
+.\.venv-v1.1\Scripts\python.exe verify_planner.py
+```
+
+The real-review script `review_planner.py --trace` is opt-in, uses only controlled
+cases in [trip_cases.json](evals/trip_cases.json), and refuses to overwrite saved
+outputs. It can consume API quota. Production chat and planner calls explicitly
+disable tracing. No held-out benchmark or LLM judge is part of planner testing.
+
 ### Flash Lite generation and anonymous usage safeguards on v1.1
 
 The public v1.0 deployment is unchanged. This branch uses
 `gemini-3.5-flash-lite` as its only configured text-generation model, through
 `GEMINI_CHAT_MODEL`. Rewriting and final answers use that same model and one
-shared generation-call budget. Future trip planning must use this configuration
-and the same generation bucket; no planner is implemented yet. Gemini
+shared generation-call budget. The trip planner uses that same model and
+budget. Gemini
 Embedding 2 and the existing 49 document vectors remain unchanged.
 
 The user verified these Free Tier project limits. Application defaults leave
@@ -346,7 +453,7 @@ headroom and count invocation attempts, including failures, rather than messages
 | `gemini-3.5-flash-lite`, all text generation | 15 / 250,000 / 500 | 10 / 300 shared | 150,000 |
 | `gemini-embedding-2`, cache misses | 100 / 30,000 / 1,000 | 30 / 300 separate | 20,000 |
 
-Each browser session gets 3 chat requests and 1 future trip plan per rolling
+Each browser session gets 3 chat requests and 1 trip plan per rolling
 60 minutes, with a 12-second cooldown and 700-character input limit. Reruns do
 not double-charge. New conversation preserves usage. A cached singleton allows
 2 concurrent workflows and 3 workflow starts per rolling minute. The workflow
@@ -392,8 +499,9 @@ query-embedding call. A follow-up adds one generation for rewriting, so it
 consumes up to two calls from the same Flash Lite bucket. Cache hits remove
 the embedding call; BM25 needs none. Empty evidence skips answer generation.
 The last four exchanges provide bounded rewrite context, while final answers
-still use retrieved PDF evidence and validated source IDs. Future `trip_plan`
-admission must declare a bounded `generation` and `embedding` call budget.
+still use retrieved PDF evidence and validated source IDs. `trip_plan` admission
+reserves one generation and at most three embedding calls. Cached embeddings
+reduce the actual cost; there is no planner rewrite or generation repair loop.
 
 The [Flash Lite smoke review](evals/answer_quality_flash_lite.md) records three
 real answers using the same saved evidence as the earlier 3.8 review. Both
