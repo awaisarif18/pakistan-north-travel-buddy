@@ -363,12 +363,18 @@ missing groups, the top-five cutoff, and shared supporting chunks.
 
 ## Stage 7: deployment
 
-**Readiness checked; publication and deployment pending.** No repository push,
-Streamlit Community Cloud deployment, or live URL was created. The PDF, complete
-database, caches, and local readiness artifacts remain ignored by Git. The index
+**Readiness checked; index publication approved; deployment pending.** Source code and
+evaluation reports are already public in the existing
+[awaisarif18/pakistan-north-travel-buddy repository](https://github.com/awaisarif18/pakistan-north-travel-buddy).
+The initial readiness preparation made no commit or push and created no Streamlit
+Community Cloud deployment or live URL. The user subsequently explicitly approved
+publishing the complete index to this existing public repository. The deployment
+commit adds that index as an explicit exception to the existing `data/` ignore
+rule. The PDF, caches, extraction files, and local readiness artifacts remain
+excluded. The index
 contains document text and vectors; omitting the original PDF does not remove
-the need for explicit approval before publishing it. Existing evaluation reports
-and labels also contain source excerpts that require publication review.
+the need for explicit approval before publishing it. Repository visibility
+will remain public. The demo URL stays pending until hosted verification.
 
 **Inspection and package choice.** `.gitignore` excludes `*.pdf`, `data/`, `.env`,
 `.venv`, and `.streamlit/secrets.toml`. The root `requirements.txt` pins all five
@@ -415,12 +421,52 @@ environment. They do not claim a successful managed Cloud build, resource-limit
 test, public URL, or hosted Gemini request. No additional service or infrastructure
 was provisioned. Runtime paths and secrets do not require a connection to the
 original PC once the approved files are present on the server.
-The earlier Linux snapshot predates the UI redesign; include the new `ui.css`
-and `.streamlit/config.toml` in a future deployment package.
+The earlier Linux snapshot predates the UI redesign. A subsequent clean-copy
+startup check below includes the current `ui.css` and `.streamlit/config.toml`.
 
-**Future deployment steps, after approval.** The README documents the exact
-packaging and settings. Use an approved repository, preferably private if the
-source should not be public. Explicitly add only the approved full index at
+**Current repository and snapshot inspection.** Local `main` and remote `main`
+both pointed to `d735d7c57f143d99b6931eb09e1b8231e4c3bf12`. Origin is
+`https://github.com/awaisarif18/pakistan-north-travel-buddy.git`. The working tree
+was clean and nothing was staged before preparation. Only this report and the
+README need changes; runtime code, models, dependency pins, theme, and ignore
+rules are preserved.
+
+The index opens with exactly 49 vectors and matches the existing embedding
+configuration: `gemini-embedding-2`, 3,072 dimensions, `search-result-v1`.
+The stored document-vector fingerprint still matches the previously recorded
+value. SQLite `PRAGMA integrity_check` returned `ok`; no WAL or SHM sidecars were
+present. Opening Chroma updated SQLite bookkeeping, so the snapshot was copied
+after that process exited. No document vectors were changed or regenerated.
+The complete five-file package is:
+
+| Path under `data/chroma/` | Bytes |
+|---|---:|
+| `chroma.sqlite3` | 1,986,560 |
+| `1cc615b6-9f77-44e6-a5ed-717d089c2764/data_level0.bin` | 1,242,800 |
+| `1cc615b6-9f77-44e6-a5ed-717d089c2764/header.bin` | 100 |
+| `1cc615b6-9f77-44e6-a5ed-717d089c2764/length.bin` | 400 |
+| `1cc615b6-9f77-44e6-a5ed-717d089c2764/link_lists.bin` | 0 |
+| Total | 3,229,860 |
+
+A new copy of `git archive HEAD` plus those exact index files passed current
+Streamlit initial rendering with all 49 vectors and both UI assets present.
+It had no original PDF, extraction JSON, `.env`, or query cache. A placeholder
+environment key was used, and guarded embedding, generation, and ingestion
+functions were never called. This check ran in the existing Windows environment;
+the separate Linux Python 3.12 check above remains the compatibility evidence.
+Local check details and file hashes are saved under ignored
+`data/readiness/deployment_inspection.json`.
+
+The 16 tracked files and five index files were scanned for the configured API
+key and common credential signatures, with no findings. The PDF, extraction
+files, query cache, readiness artifacts, virtual environment, and secret files
+are excluded from the publication proposal. No files were staged. Existing
+retrieval scores remain Hit@5 1.0000, MRR@10 0.9667, and CompleteEvidence@5
+1.0000; no retrieval evaluation or Gemini request was repeated.
+
+**Deployment steps, after approval.** The README documents the publication
+commands and settings. Use the existing public repository
+`awaisarif18/pakistan-north-travel-buddy`, branch `main`. Explicitly add only the approved full index at
 `data/chroma/`, preserving all other ignore rules. A plain current checkout
 without the ignored index cannot run; the successful clean-checkout test included
 the index explicitly. Configure `app.py`, Python 3.12, and the existing root
@@ -431,11 +477,22 @@ on startup, or deploy a database server. The app deliberately displays retrieved
 passages, so source-content visibility also needs approval when sharing the demo.
 
 After an authorized deployment, verify a cited answer, a refusal, and a restart
-using the bundled index. Query caching is disposable on the Cloud filesystem;
+using the bundled index, then record the verified live URL in the README.
+Query caching is disposable on the Cloud filesystem;
 the bundled document index remains the source of truth. Docker, CI/CD,
 `packages.txt`, and additional hosted storage are not required by these checks.
+
+For subsequent code updates, commit the intended files and push to this same
+`main` branch; Community Cloud follows the branch and updates the app. Manage
+the API key through Cloud app settings. Keep the database bundled across code
+updates, and review any replacement index before publishing it. Runtime uses
+repository-relative paths and root-level Cloud secrets, so the deployed app
+needs no connection to the development PC. No local deployment blocker was
+found. Publication approval, push authorization, private Cloud secret setup, and
+actual hosted build and answer checks remain pending.
 
 Streamlit's official documentation describes [Python selection and deployment](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy),
 [Linux dependencies](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies),
 and [private secrets](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
-All publication and hosted verification remain pending explicit approval.
+Index publication has explicit user approval. Hosted deployment and live URL
+verification remain pending.

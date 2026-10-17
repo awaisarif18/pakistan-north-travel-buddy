@@ -171,9 +171,11 @@ The five earlier smoke queries are not formal scores.
 - Local query caching and session chat are intended for a demo, not concurrent
   production use. Generation requires Gemini API access.
 
-Deployment and a public demo URL are pending. No publication or Streamlit Cloud
-deployment has started. Approval is required before publishing the source PDF,
-index, or excerpts.
+The source code and evaluation reports are already public in
+[awaisarif18/pakistan-north-travel-buddy](https://github.com/awaisarif18/pakistan-north-travel-buddy).
+Publication of the source-containing index has been explicitly approved. The
+complete index is included in the deployment package. **Live demo URL: pending
+hosted verification.**
 
 ## Deployment readiness and future process
 
@@ -188,26 +190,47 @@ readiness check. This verifies local Linux startup, not an actual hosted build.
 The simplest package is the entire existing `data/chroma/` directory, about
 3.23 MB, including `chroma.sqlite3` and its UUID-named binary-index directory.
 Do not copy only the SQLite file. The index itself contains extracted document
-text and embeddings, so it needs publication approval even when the PDF is omitted.
-An ordinary current checkout lacks the ignored index and cannot start the app
-until that bundle is supplied.
+text and embeddings, so publication approval was obtained even though the PDF
+is omitted. The approved index is explicitly tracked while the broader `data/`
+ignore rule remains. A checkout contains everything needed at runtime except
+the private Gemini key.
 
-After explicit publication approval:
+The current deployment inspection confirmed SQLite integrity, 49 vectors of
+3,072 dimensions, and collection metadata matching `gemini-embedding-2` and
+`search-result-v1`. All document-vector values remain unchanged. A fresh copy
+of tracked files plus the full index rendered the current app with `ui.css` and
+the existing theme, without the original PDF, extraction JSON, `.env`, or query
+cache. Startup made no embedding, generation, or ingestion calls. The five-file
+snapshot totals 3,229,860 bytes. No credentials were found in the inspected
+tracked files or index. These checks did not rerun retrieval evaluations.
 
-1. Use an approved repository, preferably private if the source should stay out
-   of a public Git repository. Include `app.py`, `rag.py`, `ui.css`,
-   `.streamlit/config.toml`, pinned requirements, and the full
-   prebuilt index at `data/chroma/`. Keep `.gitignore` protections; explicitly
-   stage only that approved index with `git add -f data/chroma`. Do not include
+Publication and deployment steps:
+
+1. Use the existing public repository
+   `awaisarif18/pakistan-north-travel-buddy`, branch `main`. Do not create another
+   repository or change visibility. The runtime code, `ui.css`, theme config,
+   and pinned requirements are already tracked. After approval, publish the
+   complete prebuilt index at `data/chroma/` with the updated documentation:
+
+   ```bash
+   git add -- README.md docs/PROJECT_REPORT.md
+   git add -f -- data/chroma/
+   git diff --cached --name-only
+   git commit -m "Bundle prebuilt Chroma index for Streamlit deployment"
+   git push origin main
+   ```
+
+   Confirm staging contains only the two documentation files and five inspected
+   index files before committing. Keep the current `data/` ignore rule. Do not include
    `.env`, the original PDF, raw extraction JSON, query caches, or local readiness
-   artifacts. Evaluation reports also contain source excerpts and need review
-   before repository publication.
-2. In Streamlit Community Cloud, choose the approved repository/branch and
-   `app.py` as the entrypoint. Select Python 3.12 in Advanced settings to match
-   the Linux readiness check. Use the existing root `requirements.txt`; no
+   artifacts or `.streamlit/secrets.toml`.
+2. In Streamlit Community Cloud, create an app from the existing repository,
+   branch `main`, with `app.py` as the entrypoint. Select Python 3.12 in Advanced
+   settings to match the Linux readiness check. Use the existing root
+   `requirements.txt`; no
    Docker, `packages.txt`, custom server settings, or database service is needed
    by the verified local Linux startup. The theme-only Streamlit config belongs
-   in the package. The earlier Linux snapshot check predates this UI styling pass.
+   in the package. Python selection is a Cloud setting, not a change to the theme.
 3. Put the following root-level TOML keys in Cloud's Secrets field, supplying
    the actual key privately there. Do not commit a `secrets.toml` containing it:
 
@@ -222,12 +245,19 @@ After explicit publication approval:
    it does not connect to this PC. The local query cache is disposable and can
    disappear on redeploy without affecting the bundled document vectors.
 
+For later application updates, commit only the intended changes and push to
+the same `main` branch; Community Cloud updates the app from that branch.
+Change secrets in Cloud's app settings. Preserve the prebuilt index when
+updating code. Replacing the source-containing database requires a separately
+reviewed complete snapshot, not ingestion at startup.
+
 Cloud deployment and the live URL are still unverified. The deployment UI's
 [Python selection](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy),
 [Linux dependency handling](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies),
 and [private secrets settings](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management)
 are documented by Streamlit. The local readiness archive remains under ignored
-`data/readiness/`; nothing has been published or staged for publication.
+`data/readiness/` and is excluded from publication. Only the approved index and
+documentation are included in the deployment commit.
 
 See [the project report](docs/PROJECT_REPORT.md) for the implementation process,
 recorded results, design choices, and remaining work.
