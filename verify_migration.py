@@ -10,6 +10,7 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
 import rag
@@ -50,7 +51,8 @@ def check_adapter(output):
 def check_graph(documents):
     payload = {"answerable": True, "paragraphs": [{"text": "Supported fixture.", "sources": ["S1"]}]}
     chat = Mock()
-    chat.with_structured_output.return_value = RunnableLambda(lambda _: payload)
+    chat.with_structured_output.return_value = RunnableLambda(lambda _: {"raw": AIMessage(content="", response_metadata={"finish_reason": "STOP"}),
+        "parsed": payload, "parsing_error": None})
     graph = build_workflow(RunnableLambda(lambda _: documents), chat)
     question = "  preserve exact question  "
     events = list(graph.stream({"question": question}))
@@ -67,13 +69,9 @@ def check_graph(documents):
         raise AssertionError("Blank question accepted.")
     for paragraphs in [[], [{"text": "Unsupported", "sources": []}],
                        [{"text": "Unsupported", "sources": ["S99"]}]]:
-        try:
-            validate_citations({"matches": list(sources.values()),
-                                "payload": {"answerable": True, "paragraphs": paragraphs}})
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("Invalid citations accepted.")
+        result = validate_citations({"question": "Fixture?", "retrieval_query": "Fixture?", "matches": list(sources.values()),
+                                     "payload": {"answerable": True, "paragraphs": paragraphs}})
+        assert not result["answer"]["answerable"] and not result["answer"]["cited_ids"]
     empty_chat = Mock()
     result = build_workflow(RunnableLambda(lambda _: []), empty_chat).invoke({"question": "Missing?"})
     assert result["answer"] == {"text": rag.NOT_FOUND, "answerable": False, "cited_ids": []}

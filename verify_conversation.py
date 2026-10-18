@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+from langchain_core.messages import AIMessage
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 from langgraph.checkpoint.memory import InMemorySaver
@@ -33,7 +34,7 @@ def fixtures():
         return [Document(id=source_id, page_content=f"Controlled test evidence about {topic}.",
                          metadata={"source": "synthetic.pdf", "page_start": page, "page_end": page})]
 
-    def structured(schema, **_):
+    def structured(schema, **options):
         def respond(prompt):
             context = json.loads(prompt.messages[-1].content)
             if "standalone_query" in schema["properties"]:
@@ -48,7 +49,11 @@ def fixtures():
                 return {"answerable": False, "paragraphs": []}
             return {"answerable": True, "paragraphs": [
                 {"text": context["excerpts"][0]["text"], "sources": ["S1"]}]}
-        return RunnableLambda(respond)
+        def envelope(prompt):
+            payload = respond(prompt)
+            return {"raw": AIMessage(content="", response_metadata={"finish_reason": "STOP"}),
+                    "parsed": payload, "parsing_error": None} if options.get("include_raw") else payload
+        return RunnableLambda(envelope)
 
     chat = Mock()
     chat.with_structured_output.side_effect = structured
@@ -115,13 +120,10 @@ def controlled_checks(trace=False):
 
     for paragraphs in [[], [{"text": "Unsupported", "sources": []}],
                        [{"text": "Unsupported", "sources": ["S99"]}]]:
-        try:
-            validate_citations({"matches": [{"id": "fixture", "metadata": {}}],
-                                "payload": {"answerable": True, "paragraphs": paragraphs}})
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("Invalid citations accepted")
+        result = validate_citations({"question": "Fixture?", "retrieval_query": "Fixture?",
+                                    "matches": [{"id": "fixture", "metadata": {}}],
+                                    "payload": {"answerable": True, "paragraphs": paragraphs}})
+        assert not result["answer"]["answerable"] and not result["answer"]["cited_ids"]
     # Ambient tracing must not override the frontend's explicit opt-out.
     with patch.dict(os.environ, {"LANGSMITH_TRACING": "true"}):
         def private_retrieve(_):
@@ -130,7 +132,9 @@ def controlled_checks(trace=False):
                              metadata={"page_start": 1, "page_end": 1})]
         def private_generate(_):
             assert get_tracing_context()["enabled"] is False
-            return {"answerable": True, "paragraphs": [{"text": "Private fixture.", "sources": ["S1"]}]}
+            return {"raw": AIMessage(content="", response_metadata={"finish_reason": "STOP"}),
+                    "parsed": {"answerable": True, "paragraphs": [{"text": "Private fixture.", "sources": ["S1"]}]},
+                    "parsing_error": None}
         private_chat = Mock()
         private_chat.with_structured_output.return_value = RunnableLambda(private_generate)
         private = build_workflow(RunnableLambda(private_retrieve), private_chat, private_chat, checkpointer=InMemorySaver())

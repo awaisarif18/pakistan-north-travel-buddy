@@ -14,9 +14,11 @@ from langgraph.graph import END, START, StateGraph
 from langsmith import get_current_run_tree, tracing_context
 
 import rag
-from gemini_protection import EMBEDDING_CACHE_LOCK, invoke_chat, protected_embeddings_client
-from usage_limits import UsageLimitError, question_limit
+from gemini_protection import EMBEDDING_CACHE_LOCK, invoke_chat, protected_embeddings_client, completed_payload
+from usage_limits import question_limit
 
+ALPHA_NOTICE = ("Alpha testing: Responses may be incomplete or inaccurate. Verify routes, access, "
+                "prices, and safety information before travelling.")
 
 INSTRUCTION = (
     "Answer the travel question concisely using ONLY the supplied PDF excerpts. "
@@ -26,7 +28,11 @@ INSTRUCTION = (
     "inside the text; Python adds them. Describe prices and schedules as guide estimates. "
     "Do not infer live weather, availability, or current road conditions from this static guide. "
     "If the requested information is absent, set answerable=false and paragraphs=[]. "
-    "For partially supported questions, answer the supported parts and say what is missing."
+    "For partially supported questions, answer the supported parts and say what is missing. "
+    "A supported No or correction to a false premise is answerable. Keep lake/meadow distinctions "
+    "and geographic qualifications; chapter membership is not administrative geography. "
+    "If a heading/name and prose conflict, state the source ambiguity instead of deciding a type. "
+    "For lists, stay concise and relevant; do not add unrelated prices or pad with uncertain places."
 )
 PROMPT = ChatPromptTemplate.from_messages([("system", INSTRUCTION), ("human", "{context}")])
 REWRITE_PROMPT = ChatPromptTemplate.from_messages([
@@ -70,9 +76,15 @@ class ChatState(TypedDict, total=False):
     matches: list[dict]
     payload: dict
     answer: dict
+    rewrite_fallback: bool
 
 
-def open_retriever(k=5, mode="dense"):
+def open_retriever(k=5, mode="dense", *, chat_evidence=False):
+    if chat_evidence and mode == "dense":
+        from langchain_core.runnables import RunnableLambda
+        from retrieval import select_chat_evidence
+        candidates = open_retriever(k=10, mode=mode)
+        return RunnableLambda(lambda query: select_chat_evidence(query, candidates.invoke(query)))
     if mode not in {"dense", "bm25", "hybrid"} or k < 1:
         raise ValueError("Choose dense, bm25, or hybrid retrieval with k >= 1.")
     collection = rag.open_collection()  # Check the existing model and index metadata.
@@ -93,7 +105,7 @@ def open_retriever(k=5, mode="dense"):
     return store.as_retriever(search_type="similarity", search_kwargs={"k": min(k, collection.count())})
 
 
-def chat_model(*, rewrite=False):
+def chat_model(*, rewrite=False, planning=False):
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key or key == "your-gemini-api-key":
         raise ValueError("Set GEMINI_API_KEY in .env or Streamlit Secrets.")
@@ -104,7 +116,7 @@ def chat_model(*, rewrite=False):
         options["temperature"] = 0.2
     return ChatGoogleGenerativeAI(
         model=model, api_key=key, vertexai=False,
-        max_tokens=300 if rewrite else 1800, timeout=60, max_retries=1, **options,
+        max_tokens=300 if rewrite else 2400 if planning else 1800, timeout=60, max_retries=1, **options,
     )
 
 
@@ -129,16 +141,46 @@ def prepare_question(state: ChatState):
         raise ValueError("Enter a nonempty question.")
     # Preserve the exact input string, including whitespace, for cache parity.
     return {"question": state["question"], "retrieval_query": state["question"],
-            "documents": [], "matches": [], "payload": {}, "answer": {}}
+            "documents": [], "matches": [], "payload": {}, "answer": {}, "rewrite_fallback": False}
 
 
 def needs_rewrite(state: ChatState):
     return bool(state.get("turns") and FOLLOW_UP.search(state["question"].strip().replace("\u2019", "'")))
 
 
+def supported_parts(parts, sources):
+    """Keep independent paragraphs with known citations, not a semantic fact check."""
+    valid, omitted = [], False
+    for part in parts if isinstance(parts, list) else [None]:
+        if not isinstance(part, dict) or not isinstance(part.get("text"), str):
+            omitted = True
+            continue
+        refs = part.get("sources")
+        if (not part["text"].strip() or not isinstance(refs, list) or not refs
+                or any(not isinstance(ref, str) or ref not in sources for ref in refs)):
+            # Do not trim a bad citation and imply the remaining ID supports every claim.
+            omitted = True
+            continue
+        text = re.sub(r"\s*\[(?:S\d+[\s,;]*)+\]", "", part["text"]).strip()
+        if text:
+            valid.append({"text": text, "sources": list(dict.fromkeys(refs))})
+        else:
+            omitted = True
+    return valid, omitted
+
+
 def validate_citations(state: ChatState):
     sources = {f"S{i}": match for i, match in enumerate(state["matches"], 1)}
-    answer = rag.format_answer(state["payload"], sources)
+    parts, omitted = supported_parts(state["payload"].get("paragraphs", []), sources)
+    answer = (rag.format_answer({"answerable": True, "paragraphs": parts}, sources) if parts
+              else {"text": rag.NOT_FOUND, "answerable": False, "cited_ids": []})
+    notes = []
+    if omitted:
+        notes.append("Some details could not be supported by the guide and were omitted.")
+    if state.get("rewrite_fallback"):
+        notes.append("Include the destination in your question if the result is too broad.")
+    if notes:
+        answer["app_notes"] = notes
     turn = {"question": state["question"], "retrieval_query": state["retrieval_query"],
             "answer": answer, "matches": state["matches"]}
     # Replace the list once after validation; never replay previous messages as input.
@@ -151,15 +193,19 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
     def rewrite_question(state: ChatState):
         recent = [{"question": turn["question"][:question_limit()], "resolved_question": turn["retrieval_query"][:question_limit()],
                    "answer": turn["answer"]["text"][:1200]} for turn in state["turns"][-4:]]
-        chain = REWRITE_PROMPT | rewriter.with_structured_output(REWRITE_SCHEMA, method="json_schema")
-        result = invoke_chat(chain, {"context": json.dumps(
+        chain = REWRITE_PROMPT | rewriter.with_structured_output(REWRITE_SCHEMA, method="json_schema", include_raw=True)
+        response = invoke_chat(chain, {"context": json.dumps(
             {"recent_exchanges": recent, "question": state["question"]}, ensure_ascii=False,
         )})
-        query = result["standalone_query"].strip()
-        if not query:
-            raise ValueError("The follow-up could not be resolved. Name the destination and try again.")
-        if len(query) > question_limit():
-            raise UsageLimitError("Please name the destination in a shorter question and try again.")
+        # Provider/network/quota errors above propagate: no embedding or answer call follows.
+        try:
+            result = completed_payload(response)
+            query = result.get("standalone_query")
+            if not isinstance(query, str) or not query.strip() or len(query.strip()) > question_limit():
+                raise ValueError("Unusable rewrite.")
+            query = query.strip()
+        except ValueError:
+            return {"retrieval_query": state["question"], "rewrite_fallback": True}
         return {"retrieval_query": state["question"] if query == state["question"].strip() else query}
 
     def retrieve_evidence(state: ChatState):
@@ -173,12 +219,12 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
         context = [{"source_id": f"S{i}", "text": doc.page_content}
                    for i, doc in enumerate(state["documents"], 1)]
         chain = PROMPT | chat.with_structured_output(
-            answer_schema(item["source_id"] for item in context), method="json_schema",
+            answer_schema(item["source_id"] for item in context), method="json_schema", include_raw=True,
         )
-        payload = invoke_chat(chain, {"context": json.dumps(
+        response = invoke_chat(chain, {"context": json.dumps(
             {"question": state["retrieval_query"], "excerpts": context}, ensure_ascii=False,
         )})
-        return {"payload": payload}
+        return {"payload": completed_payload(response)}
 
     graph = StateGraph(ChatState)
     nodes = [

@@ -27,3 +27,13 @@ def invoke_chat(chain, inputs):
     token_budget = len(json.dumps(inputs, ensure_ascii=False).encode("utf-8")) + 4096
     with api_call("generation", input_tokens=token_budget):
         return chain.invoke(inputs)
+
+
+def completed_payload(response):
+    """Never accept a parsed fragment from a token-limited structured response."""
+    raw = response.get("raw")
+    if raw is None or str(raw.response_metadata.get("finish_reason", "")) != "STOP":
+        raise ValueError("The response was incomplete. No partial itinerary or answer was accepted.")
+    if response.get("parsing_error") is not None or not isinstance(response.get("parsed"), dict):
+        raise ValueError("The response could not be validated. No partial output was accepted.")
+    return response["parsed"]

@@ -4,6 +4,26 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
+**v1.2.0:** a smaller answer-quality and planner-usability update. See the
+[release review](evals/v1_2_release_review.md) for actual checks and limitations,
+and the [GitHub release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.2.0)
+for rollout verification. The original index and historical benchmarks are unchanged.
+
+## What's new in v1.2.0
+
+- Source-cited paragraphs accept aliases, compound activity titles and evidence from multiple sections. A bad citation removes its paragraph without discarding valid independent content.
+- Partial plans retain separately generated, explicitly unscheduled local options when a compatible approach cannot be established. Supported jeep transfers are allowed and should be explained as optional arrangements.
+- Chat instructions preserve place types, geographic qualifications and ambiguous source descriptions. A bounded chat selector keeps the first four dense hits and chooses one additional relevant passage from the same top ten. It adds no embedding or search call.
+- Malformed rewrites fall back to the original question. Provider/quota failures stop the workflow; truncated answers/plans show a friendly retry message without displaying raw JSON.
+- Every completed chat answer and planner result carries an interface-owned alpha notice, including restored sessions and fallback messages. Uncited model limitations do not become travel facts; the application displays its own incomplete-evidence and current-access cautions.
+
+The planner still uses three fixed dense queries and a 2,400-token output cap.
+There are no new models, dependencies, embeddings or retrieval benchmarks.
+Four saved-evidence generations produced useful answers or partial outlines;
+these development checks do not establish unseen-case accuracy or real-world
+itinerary feasibility. Minor omissions and irrelevant suggestions remain possible.
+Tags `v1.0.0` and `v1.1.0` preserve the earlier releases.
+
 **v1.1.0:** conversational RAG and personalized trip planning are on `main` and
 the existing Streamlit deployment. See the [GitHub release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.1.0)
 for the full change list and verification limits. Tag `v1.0.0` preserves the
