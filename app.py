@@ -10,7 +10,7 @@ import streamlit as st
 from langgraph.checkpoint.memory import InMemorySaver
 
 from rag import TRAVEL_NOTICE, page_label
-from workflow import build_workflow, chat_model, needs_rewrite, open_retriever, run_question
+from workflow import ALPHA_NOTICE, build_workflow, chat_model, needs_rewrite, open_retriever, run_question
 from usage_limits import Policy, ProcessLimiter, UsageLimitError, is_rate_limit, new_usage, PROVIDER_BUSY
 
 st.set_page_config(page_title="Pakistan North Tours AI", page_icon="🏔️", layout="wide")
@@ -32,7 +32,7 @@ CITATION = r"\[(PDF pages? \d+(?:-\d+)?(?:; PDF pages? \d+(?:-\d+)?)*)\]"
 @st.cache_resource
 def resources():
     # Only stateless clients are shared; each session owns its graph/checkpointer.
-    return open_retriever(mode=os.getenv("RETRIEVAL_MODE", "dense")), chat_model(), chat_model(rewrite=True)
+    return open_retriever(mode=os.getenv("RETRIEVAL_MODE", "dense"), chat_evidence=True), chat_model(), chat_model(rewrite=True)
 
 
 @st.cache_resource
@@ -61,6 +61,10 @@ def show_text(text):
 def show_answer(message):
     # Only presentation changes: retain the backend's exact page values and text.
     show_text(re.sub(CITATION, r"`\1`", message["text"]))
+    for note in message.get("app_notes", []):
+        st.caption(note)
+    if message["text"]:
+        st.caption(ALPHA_NOTICE)
     matches = message["matches"]
     if not matches:
         return
@@ -184,3 +188,4 @@ if submission:
         st.info(str(error))
     except Exception as error:
         st.error(PROVIDER_BUSY if is_rate_limit(error) else "The answer could not be completed. Please try again later.")
+        st.caption(ALPHA_NOTICE)

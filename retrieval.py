@@ -1,6 +1,7 @@
 """Keyword retrieval and rank fusion over existing Chroma passages."""
 
 from typing import Any
+import math
 import re
 
 from langchain_core.documents import Document
@@ -15,6 +16,26 @@ SETTINGS = {"bm25_k1": 1.5, "bm25_b": 0.75, "bm25_epsilon": 0.25,
 
 def tokenize(text):
     return re.findall(r"[^\W_]+", text.casefold())
+
+
+def select_chat_evidence(query, candidates):
+    """Keep four semantic anchors; use one slot for uncovered query terms."""
+    unique = {}
+    for doc in candidates:
+        unique.setdefault(doc.id, doc)
+    candidates = list(unique.values())[:10]
+    if len(candidates) <= 5:
+        return candidates
+    stopwords = set("the and for are can all from into they them their these those that this with "
+                    "because called appear near chapter guide according provided actually explain about".split())
+    query_terms = {t for t in tokenize(query) if len(t) >= 3 and t not in stopwords}
+    terms = [set(tokenize(doc.page_content)) for doc in candidates]
+    covered = set().union(*terms[:4])
+    weights = {term: math.log((len(candidates) + 1) / (1 + sum(term in words for words in terms)))
+               for term in query_terms - covered}
+    scores = [sum(weights.get(term, 0) for term in words) for words in terms]
+    fifth = max(range(4, len(candidates)), key=lambda i: (scores[i], -i))
+    return candidates[:4] + [candidates[fifth]]
 
 
 def stored_documents(collection):

@@ -2262,3 +2262,57 @@ commits/pushes to `main`. No hosted reboot, secrets/settings change, tag move,
 or new release is part of this pass. If a reproducible regression appears,
 inspect deployment logs and use a normal history-preserving `git revert` of
 the relevant maintenance commit followed by push. Do not reset or force-push.
+
+
+## v1.2.0 answer quality and planner usability
+
+This batch uses maintenance commit `0f144c2` as the functional reference. The
+larger destination-understanding experiments were preserved locally, then the
+runtime returned to ordinary source-cited paragraphs. Paragraph-level reference
+IDs, copied-quotation matching, option-title matching and experimental semantic
+checks are not shipped. Aliases and compound titles do not require literal matches.
+
+`workflow.py` filters invalid cited paragraphs independently and preserves valid
+siblings. Malformed rewrite results fall back to the original question; actual
+provider, timeout and quota errors stop the workflow without further calls.
+`gemini_protection.py` rejects incomplete or unparseable structured completions.
+The frontend shows friendly failures rather than raw JSON or internal diagnostics.
+
+`planner.py` adds independent destination options and optional transport
+arrangements. The existing motorbike/motorway guard still withholds an unresolved
+schedule; supported local options survive. It never converts rejected day cards
+into options. Source-supported jeep transfers are permitted. A compatible journey,
+parking, transfer availability and costs still need confirmation where absent.
+Free-text model limitations are used only as an incompleteness signal, not displayed
+as uncited route, duration, closure or prohibition claims. Cited guidance remains
+available. This was checked offline against the four actual saved generations,
+without regenerating them or changing their prompts.
+
+`retrieval.py` keeps dense ranking intact and exposes a bounded chat evidence
+selector. It preserves the first four of ten dense candidates and chooses one
+remaining passage using uncovered query terms. On six already-inspected development
+chat cases it lost no reviewed reference facts and recovered the available Bashkargol
+geography in d03. This is a small evidence-availability check, not a new accuracy
+score. Planner retrieval and historical retrieval evaluations are unchanged.
+
+`app.py` and `planner_ui.py` render an interface-owned alpha notice on completed,
+restored and fallback outputs. It is not part of a model prompt or stored history.
+Desktop and 390px browser previews covered chat, source display, complete cards,
+partial options, currency and notice wrapping. Mocked checks covered conversations,
+reruns, session isolation, citations, rewrite failures, quota/DST/concurrency limits,
+provider errors and production tracing opt-out. No new runtime dependencies or
+configuration secrets are required.
+
+The revised product acceptance policy separates major unsupported route/access/
+duration claims from minor omissions and wording differences. The goal is useful
+cited content with honest limits, not perfect list coverage or diagnostic scores.
+Citations validate reference identity, not semantic correctness. Frozen v1.0/v1.1
+references, scores and the v1.1.0 tag remain unchanged. No held-out tuning occurred.
+
+Actual generation observations and commands are in the concise
+[v1.2 release review](../evals/v1_2_release_review.md). The pre-merge run used four
+generation attempts and no embeddings, document embeddings, retries or uploads.
+The separate reserved hosted checks and final deployment status are recorded on
+[the v1.2 release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.2.0)
+when publication passes its verification gate. A hosted cold restart is not claimed.
+Rollback uses a normal revert of the release merge commit, never a reset or force-push.

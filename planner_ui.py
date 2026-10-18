@@ -8,12 +8,12 @@ from planner import (API_BUDGET, BUDGETS, INTERESTS, MAX_DAYS, MONTHS, RETRIEVAL
                      TRANSPORT, build_planner, run_trip, validate_preferences)
 from rag import TRAVEL_NOTICE
 from usage_limits import PROVIDER_BUSY, UsageLimitError, is_rate_limit
-from workflow import chat_model, open_retriever
+from workflow import ALPHA_NOTICE, chat_model, open_retriever
 
 
 @st.cache_resource
 def planner_resources():
-    return build_planner(open_retriever(mode=RETRIEVAL_MODE), chat_model())
+    return build_planner(open_retriever(mode=RETRIEVAL_MODE), chat_model(planning=True))
 
 
 def show_planner(limiter, show_evidence, show_text):
@@ -46,8 +46,10 @@ def show_planner(limiter, show_evidence, show_text):
         except (UsageLimitError, ValueError) as error:
             st.info(str(error) if isinstance(error, UsageLimitError)
                     else "Check your trip preferences and try a simpler trip. The guide may lack enough evidence.")
+            st.caption(ALPHA_NOTICE)
         except Exception as error:
             st.error(PROVIDER_BUSY if is_rate_limit(error) else "The trip could not be completed. Please try again later.")
+            st.caption(ALPHA_NOTICE)
     st.caption(f"{limiter.remaining(st.session_state.usage, 'trip_plan')} of {limiter.policy.trip_requests} trip plans remaining in this session window.")
     if "trip_plan" in st.session_state:
         plan = st.session_state.trip_plan
@@ -60,6 +62,16 @@ def show_planner(limiter, show_evidence, show_text):
             with st.container(border=True):
                 show_text(f"#### Day {day['day']} · {day['title']}")
                 show_text(day["text"])
+        if plan.get("destination_options"):
+            st.markdown("#### Destination options · not scheduled")
+            st.caption("Local ideas from the guide. These are not a confirmed route or daily schedule.")
+            for option in plan["destination_options"]:
+                with st.container(border=True):
+                    show_text(f"#### {option['title']}")
+                    show_text(option["text"])
+        if plan.get("transport_alternatives"):
+            with st.expander("Optional transport arrangements", expanded=True):
+                show_text(plan["transport_alternatives"])
         for topic, text in plan["guidance"].items():
             if text:
                 with st.expander(topic, expanded=topic in {"Season", "Safety"}):
@@ -69,4 +81,7 @@ def show_planner(limiter, show_evidence, show_text):
             for line in plan["limitations"]:
                 show_text(f"• {line}")
         show_evidence({"text": "", "cited_ids": plan["cited_ids"], "matches": plan["matches"]})
+        for note in plan.get("app_notes", []):
+            st.caption(note)
+        st.caption(ALPHA_NOTICE)
     st.caption(TRAVEL_NOTICE)

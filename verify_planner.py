@@ -5,6 +5,7 @@ import json
 import os
 from unittest.mock import Mock, patch
 
+from langchain_core.messages import AIMessage
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 from langsmith import tracing_context
@@ -26,7 +27,7 @@ def fixtures():
         queries.append(query)
         return documents
 
-    def structured(schema, **_):
+    def structured(schema, **options):
         def respond(prompt):
             calls.append(1)
             p = json.loads(prompt.messages[-1].content)["preferences"]
@@ -34,12 +35,16 @@ def fixtures():
             short = p["days"] == 1
             part = {"text": "Controlled Hunza evidence. Guide prices: $15/day and US$1,000.", "sources": ["S1"]}
             return {"status": "unsupported" if unsupported else "partial" if short else "complete",
-                    "overview": [] if unsupported else [part],
+                    "overview": [] if unsupported else [deepcopy(part)],
                     "days": [] if short or unsupported else [
-                        {"day": i, "title": "Controlled activity", "activities": [part]} for i in range(1, p["days"] + 1)],
-                    "guidance": [] if unsupported else [{"topic": topic, "paragraphs": [part]} for topic in TOPICS],
+                        {"day": i, "title": "Controlled activity", "activities": [deepcopy(part)]} for i in range(1, p["days"] + 1)],
+                    "guidance": [] if unsupported else [{"topic": topic, "paragraphs": [deepcopy(part)]} for topic in TOPICS],
                     "limitations": ["This trip cannot be established from the evidence."] if short or unsupported else []}
-        return RunnableLambda(respond)
+        def envelope(prompt):
+            payload = respond(prompt)
+            return {"raw": AIMessage(content="", response_metadata={"finish_reason": "STOP"}),
+                    "parsed": payload, "parsing_error": None} if options.get("include_raw") else payload
+        return RunnableLambda(envelope)
 
     model = Mock()
     model.with_structured_output.side_effect = structured
@@ -53,8 +58,8 @@ def graph_checks():
     assert all("PDF pages 20-22" in plan["overview"] for plan in plans)
     assert plans[0]["preferences"]["transport"] == "Motorbike" and len(plans[0]["days"]) == 5
     assert plans[1]["preferences"]["destination"] == "Skardu" and len(plans[1]["days"]) == 3
-    assert "Confirm access locally" in plans[1]["guidance"]["Transport"]
-    assert "Controlled Hunza evidence" not in plans[1]["guidance"]["Transport"]
+    assert "Controlled Hunza evidence" in plans[1]["guidance"]["Transport"]
+    assert "Current access" in plans[1]["app_notes"][0]
     assert plans[2]["status"] == "partial" and not plans[2]["days"]
     assert all(set(plan["cited_ids"]) <= {"fixture-hunza"} for plan in plans)
     other = {**CASES[0]["preferences"], "destination": "Moon"}
@@ -86,12 +91,11 @@ def graph_checks():
             broken["payload"]["days"][0]["day"] = 8
         else:
             broken["payload"]["days"][0]["activities"] = []
-        try:
-            validate_plan(broken)
-        except ValueError:
-            pass
+        filtered = validate_plan(broken)["plan"]
+        if invalid == "bad_source":
+            assert not filtered["overview"] and filtered["days"]
         else:
-            raise AssertionError("Invalid citation/day accepted")
+            assert not filtered["days"] and filtered["overview"]
     empty = build_planner(RunnableLambda(lambda _: []), Mock())
     assert run_trip(empty, CASES[0]["preferences"])["plan"]["status"] == "unsupported"
 
@@ -117,18 +121,15 @@ def guidance_checks():
     for index in (0, 1):
         invalid = deepcopy(state)
         invalid["payload"]["guidance"][index]["paragraphs"][0]["sources"] = ["S99"]
-        try:
-            validate_plan(invalid)
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("Invalid citation in repeated guidance accepted")
+        filtered = validate_plan(invalid)["plan"]
+        assert "PDF page " + str(2 if index == 0 else 1) in filtered["guidance"]["Accommodation"]
+        assert "fixture-" + str(index + 1) not in filtered["cited_ids"]
     transport = deepcopy(state)
     for item in transport["payload"]["guidance"]:
         item["topic"] = "Transport"
     local = validate_plan(transport)["plan"]
-    assert "Confirm access locally" in local["guidance"]["Transport"]
-    assert local["cited_ids"] == ["fixture-3"]  # Suppressed prose must not count as cited.
+    assert "First lodging detail" in local["guidance"]["Transport"]
+    assert set(local["cited_ids"]) == {"fixture-1", "fixture-2", "fixture-3"}
     transport["preferences"]["transport"] = "Motorbike"
     transport["payload"]["guidance"][1]["paragraphs"][0]["text"] = "Ride via M-1."
     withheld = validate_plan(transport)["plan"]

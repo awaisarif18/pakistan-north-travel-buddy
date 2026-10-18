@@ -14,8 +14,8 @@ from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
 import rag
-from gemini_protection import invoke_chat
-from workflow import answer_schema
+from gemini_protection import completed_payload, invoke_chat
+from workflow import answer_schema, supported_parts
 
 TRANSPORT = ("Motorbike", "Car", "Public Transport")
 BUDGETS = ("Budget", "Mid-range", "Comfortable")
@@ -35,7 +35,7 @@ PROMPT = ChatPromptTemplate.from_messages([
      "to omit useful days or guidance. Mark such gaps as limitations and make the plan partial. "
      "Even partial output should use available accommodation, budget, seasonal and safety evidence. "
      "Transport guidance must match the selected departure city and transport preference. If departure "
-     "and destination are both Skardu, describe only source-supported local access; omit Islamabad "
+     "and destination are the same place, describe only source-supported local access; omit unrelated "
      "flights, intercity bus services and long-distance approach advice. If local driving details "
      "are missing, say so explicitly instead of substituting unrelated intercity information. "
      "Choose only one or two nearby activities per day, with travel/rest allowance. "
@@ -46,25 +46,38 @@ PROMPT = ChatPromptTemplate.from_messages([
      "attribute them to the guide. Do not turn a recommended month into a claim of clear weather "
      "or open, accessible, or safe roads/passes/trails. Seasonal guidance must state that current "
      "weather and access need local confirmation. "
-     "For Car preference, keep 4x4-only excursions outside the committed daily plan unless a compatible "
-     "vehicle is specified. Describe a jeep upgrade as optional in guidance, not an assumed change. "
+     "Keep the selected transport for the main journey. A guide-supported jeep transfer for a rough "
+     "local leg is allowed: clearly explain where bike/car access ends and the jeep or trek begins. "
+     "Present changing transport as an optional arrangement requiring acceptance; parking, availability "
+     "and costs remain unknown unless the evidence supplies them. Do not invent vehicle suitability. "
      "For Motorbike preference, do not recommend motorway access, even if the static guide describes "
      "it as a bike route. The excerpts do not verify current vehicle-access permissions; do not "
      "assert a current legal prohibition either, including in limitations. If a compatible "
      "outward/return route is not established, omit the day-by-day schedule and return partial guidance "
      "with the missing approach/access information explained. Never invent a replacement route. "
+     "Keep independently supported local activities as destination_options, explicitly UNSCHEDULED, "
+     "when the approach is unresolved. Do not copy rejected travel days into those options. "
+     "Give each option a short title and one compact cited paragraph including its necessary access, "
+     "trek duration/difficulty and connector-guide qualifications. Do not force a minimum option count. "
+     "For complete plans, do not repeat scheduled activities as unscheduled options. "
+     "Preserve place types, geographic qualifications and source ambiguity: a heading or chapter "
+     "grouping alone does not establish a place's classification or administrative region. "
      "Do not compress long journeys to fill a short trip or invent journey times, road access, prices, "
      "bookings, weather, or hotel availability. Consider transport, budget, interests, month and rest. "
      "If the requested route/time/season is unsupported or infeasible, return partial or unsupported "
      "with clear limitations; never present a complete feasible itinerary. A partial plan may have "
-     "fewer days, or no days if feasibility cannot be established. Do not silently change the origin, "
-     "destination, transport, season or duration. For a destination absent from evidence return unsupported. "
+     "fewer days, or no days if feasibility cannot be established. Insufficient evidence to schedule is different from evidence that there is insufficient time. "
+     "One demanding trek does not make the entire regional trip impossible. Explain withheld days "
+     "with relevant cited facts and specific unknowns, not unrelated routes or inferred closures. "
+     "Do not silently change the origin, destination, transport, season or duration. For a destination absent from evidence return unsupported. "
      "Use short day titles and one concise activity paragraph per day. Each factual paragraph MUST "
      "select only source IDs that support it. Do not write source markers or page numbers in text; "
      "Python adds citations. Include transport, accommodation, source-estimated budget, seasonal "
      "restrictions, road/fuel/safety guidance when supported. State missing facts in limitations, "
      "not invented facts in uncited prose. Avoid exact total costs unless all components are supported. "
-     "Unsupported output has empty overview/days/guidance and a nonempty limitations explanation."),
+     "Use concise prose: no duplicated overview/day/option descriptions. Keep limitations to missing "
+     "information, not uncited travel facts. Unsupported output has empty overview/days/guidance/options "
+     "and a short limitations explanation. Source IDs identify passages, not proof of every claim."),
     ("human", "{context}"),
 ])
 
@@ -108,7 +121,7 @@ def prepare_needs(state: TripState):
 
 def plan_schema(source_ids):
     paragraphs = answer_schema(source_ids)["properties"]["paragraphs"]
-    return {"type": "object", "required": ["status", "overview", "days", "guidance", "limitations"],
+    return {"type": "object", "required": ["status", "overview", "days", "guidance", "limitations", "destination_options", "transport_alternatives"],
             "properties": {
                 "status": {"type": "string", "enum": ["complete", "partial", "unsupported"]},
                 "overview": paragraphs,
@@ -117,70 +130,91 @@ def plan_schema(source_ids):
                 "guidance": {"type": "array", "items": {"type": "object", "required": ["topic", "paragraphs"],
                              "properties": {"topic": {"type": "string", "enum": list(TOPICS)}, "paragraphs": paragraphs}}},
                 "limitations": {"type": "array", "items": {"type": "string"}},
+                "destination_options": {"type": "array", "items": {
+                    "type": "object", "required": ["title", "paragraphs"],
+                    "properties": {"title": {"type": "string"}, "paragraphs": paragraphs}}},
+                "transport_alternatives": paragraphs,
             }}
 
 
 def validate_plan(state: TripState):
     payload, p = state["payload"], state["preferences"]
-    route_text = [part["text"] for part in payload["overview"]]
-    route_text += [day["title"] + " " + part["text"] for day in payload["days"] for part in day["activities"]]
-    route_text += [part["text"] for item in payload["guidance"] if item["topic"] == "Transport"
-                   for part in item["paragraphs"]]
-    if p["transport"] == "Motorbike" and any(
-            re.search(r"\bmotorways?\b|\bM[-\s]?\d{1,2}\b", text, re.IGNORECASE) for text in route_text):
-        # A citation to the static guide cannot confirm current vehicle eligibility.
-        payload = {**payload, "status": "partial", "overview": [], "days": [],
-                   "guidance": [item for item in payload["guidance"] if item["topic"] != "Transport"],
-                   "limitations": [*payload["limitations"],
-                       "The guide's motorway route does not establish current motorbike access. "
-                       "A compatible outward and return route must be verified before travel days can be planned."]}
-    sources = {f"S{i}": {"id": doc.id, "metadata": doc.metadata}
-               for i, doc in enumerate(state["documents"], 1)}
-    cited = []
-
-    def render(parts):
-        if not parts:
-            return ""
-        answer = rag.format_answer({"answerable": True, "paragraphs": parts}, sources)
-        cited.extend(answer["cited_ids"])
-        return answer["text"]
-
-    status = payload["status"]
+    status = payload.get("status")
     if status not in {"complete", "partial", "unsupported"}:
         raise ValueError("The planner returned an invalid status.")
-    days = payload["days"]
-    numbers = [day["day"] for day in days]
-    if numbers != list(range(1, len(days) + 1)) or len(days) > p["days"]:
-        raise ValueError("The itinerary did not respect the requested day range.")
-    if any(not day["activities"] for day in days):
-        raise ValueError("The itinerary included a day without supporting evidence.")
-    limitations = list(dict.fromkeys(line.strip() for line in payload["limitations"] if line.strip()))
-    if status == "unsupported" and (days or payload["overview"] or payload["guidance"] or not limitations):
-        raise ValueError("An unsupported plan must explain its limits without an invented itinerary.")
-    local_car = p["transport"] == "Car" and p["departure"].casefold() == p["destination"].casefold()
+    sources = {f"S{i}": {"id": doc.id, "metadata": doc.metadata}
+               for i, doc in enumerate(state["documents"], 1)}
+    rendered_citations, omitted = {}, False
+
+    def render(parts):
+        nonlocal omitted
+        valid, dropped = supported_parts(parts, sources)
+        omitted |= dropped
+        if not valid:
+            return ""
+        answer = rag.format_answer({"answerable": True, "paragraphs": valid}, sources)
+        rendered_citations.setdefault(answer["text"], set()).update(answer["cited_ids"])
+        return answer["text"]
+
+    # Free-text model limitations are not cited facts. Use them only to signal
+    # incompleteness, never to assert an unsupported closure, duration or ban.
+    limitations = (["Some requested details could not be established from the retrieved guide evidence."]
+                   if payload.get("limitations") else [])
+    overview = render(payload.get("overview", []))
+    days = []
+    invalid_day = False
+    for day in payload.get("days", []):
+        text = render(day.get("activities", []))
+        if type(day.get("day")) is not int or not text or not isinstance(day.get("title"), str):
+            invalid_day = True
+            continue
+        days.append({"day": day["day"], "title": day["title"], "text": text})
+    if invalid_day or [d["day"] for d in days] != list(range(1, len(days) + 1)) or len(days) > p["days"]:
+        # A dependent schedule cannot safely be repaired by renumbering its surviving days.
+        days = []
+        limitations.append("A supported daily sequence could not be established; local options remain unscheduled.")
     grouped = {}
-    for item in payload["guidance"]:
-        if not (local_car and item["topic"] == "Transport"):
-            grouped.setdefault(item["topic"], []).extend(item["paragraphs"])
-    guidance = {topic: render(parts) for topic, parts in grouped.items()}
-    if local_car and status != "unsupported":
-        guidance["Transport"] = ("This static guide does not establish current driving conditions or confirm "
-                                 "standard-car suitability for every local leg. Confirm access locally; "
-                                 "any timings in the day cards are guide estimates.")
-        limitations.append("Current local driving conditions and complete vehicle-suitability details are unavailable.")
-    if status != "unsupported":
+    for item in payload.get("guidance", []):
+        if item.get("topic") in TOPICS:
+            grouped.setdefault(item["topic"], []).extend(item.get("paragraphs", []))
+    guidance = {topic: text for topic, parts in grouped.items() if (text := render(parts))}
+    options = []
+    for option in payload.get("destination_options", []):
+        text = render(option.get("paragraphs", []))
+        if text and isinstance(option.get("title"), str) and option["title"].strip():
+            options.append({"title": option["title"].strip(), "text": text})
+    alternatives = render(payload.get("transport_alternatives", []))
+    route_text = " ".join([overview, *[d["title"] + " " + d["text"] for d in days], guidance.get("Transport", "")])
+    if p["transport"] == "Motorbike" and re.search(r"\bmotorways?\b|\bM[-\s]?\d{1,2}\b", route_text, re.IGNORECASE):
+        overview, days = "", []
+        guidance.pop("Transport", None)
+        status = "partial"
+        limitations.append("The guide's motorway route does not establish current motorbike access. "
+                           "A compatible outward and return route must be verified before travel days can be planned.")
+    if omitted:
+        limitations.append("Some details could not be supported by the guide and were omitted.")
+    if overview or days or options or guidance or alternatives:
         for topic in TOPICS:
             if not guidance.get(topic):
                 limitations.append(f"The retrieved guide evidence does not provide enough {topic.lower()} detail.")
         if len(days) < p["days"]:
             limitations.append("The available evidence does not establish a full itinerary for all requested days.")
-        if not days or limitations:
+        if status == "unsupported" or not days or limitations:
             status = "partial"
-    plan = {"status": status, "preferences": p, "overview": render(payload["overview"]),
-            "days": [{"day": day["day"], "title": day["title"], "text": render(day["activities"])} for day in days],
-            "guidance": guidance, "limitations": limitations,
+    else:
+        status = "unsupported"
+        if not limitations:
+            limitations.append("The retrieved guide evidence does not establish this trip.")
+    plan = {"status": status, "preferences": p, "overview": overview, "days": days,
+            "guidance": guidance, "destination_options": options, "transport_alternatives": alternatives,
+            "limitations": list(dict.fromkeys(limitations)),
+            "app_notes": ["Current access, road conditions and availability have not been verified by this app."],
             "matches": [{"id": doc.id, "text": doc.page_content, "metadata": doc.metadata} for doc in state["documents"]]}
-    plan["cited_ids"] = list(dict.fromkeys(cited))
+    # Only displayed content contributes citations; withheld schedules do not count as evidence used.
+    visible = [overview, *[d["text"] for d in days], *guidance.values(),
+               *[o["text"] for o in options], alternatives]
+    used = set().union(*(rendered_citations.get(text, set()) for text in visible))
+    plan["cited_ids"] = list(dict.fromkeys(source["id"] for source in sources.values() if source["id"] in used))
     return {"plan": plan}
 
 
@@ -204,11 +238,11 @@ def build_planner(retriever, model):
             return {"payload": {"status": "unsupported", "overview": [], "days": [], "guidance": [],
                                 "limitations": ["No supporting trip information was retrieved from the guide."]}}
         evidence = [{"source_id": f"S{i}", "text": doc.page_content} for i, doc in enumerate(state["documents"], 1)]
-        chain = PROMPT | model.with_structured_output(plan_schema(item["source_id"] for item in evidence), method="json_schema")
+        chain = PROMPT | model.with_structured_output(plan_schema(item["source_id"] for item in evidence), method="json_schema", include_raw=True)
         start = time.perf_counter()
         payload = invoke_chat(chain, {"context": json.dumps(
             {"preferences": state["preferences"], "evidence": evidence}, ensure_ascii=False)})
-        return {"payload": payload, "generation_ms": (time.perf_counter() - start) * 1000}
+        return {"payload": completed_payload(payload), "generation_ms": (time.perf_counter() - start) * 1000}
 
     graph = StateGraph(TripState)
     nodes = [("validate_preferences", validate), ("prepare_information_needs", prepare_needs),
