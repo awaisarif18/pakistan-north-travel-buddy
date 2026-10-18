@@ -175,7 +175,7 @@ def ui_checks():
                                metadata={"source": "synthetic.pdf", "page_start": 20, "page_end": 22})])
     clock = [10000.0]
     limiter = ProcessLimiter(Policy(), clock=lambda: clock[0])
-    with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
+    with patch("usage_stats._command", return_value=None), patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
             patch("usage_limits.ProcessLimiter", return_value=limiter), patch("planner_ui.planner_resources", return_value=graph):
         app = AppTest.from_file(str(rag.ROOT / "app.py"), default_timeout=20).run()
         assert not app.exception

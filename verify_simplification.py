@@ -116,7 +116,7 @@ def notice_checks():
     from verify_planner import fixtures as planner_fixtures
     retriever, chat, _, _, _ = fixtures()
     graph, _, _, _ = planner_fixtures()
-    with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
+    with patch("usage_stats._command", return_value=None), patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
             patch("planner_ui.planner_resources", return_value=graph), \
             patch("usage_limits.Policy.from_env", return_value=Policy(cooldown_seconds=0, workflows_per_minute=100)):
         app = AppTest.from_file(str(rag.ROOT / "app.py"), default_timeout=20).run()

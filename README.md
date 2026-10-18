@@ -729,8 +729,9 @@ v1.1.0 publication with these verification limits recorded.
 No hosted Gemini call was made by the release audit.
 
 The app opens the repository-relative prebuilt index without ingestion or
-document embedding at startup. It requires no original PDF, hosted database,
-or connection to the development PC. Query caches and session history are
+document embedding at startup. The RAG core requires no original PDF, hosted
+vector database, or connection to the development PC. Shared usage statistics
+use the optional Upstash store described below. Query caches and session history are
 disposable; losing them does not remove the bundled document vectors.
 
 Clean-copy startup and Linux Python 3.12 compatibility checks loaded all 49
@@ -740,6 +741,56 @@ has not been independently verified. Push intended application changes to
 settings and review any replacement index separately. See Streamlit's
 [deployment settings](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy)
 and [secrets documentation](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
+
+## Shared public usage counts
+
+The sidebar shows **Questions answered** and **Trip plans generated** in both
+Chat and Plan a Trip. These are aggregate completed actions, not unique visitors.
+Counting starts with this feature's deployment; no historical totals are inferred.
+
+An account-owned Upstash Redis Free database holds the totals and UTC start date.
+Add these optional, server-side settings to `.env` locally and Streamlit Secrets:
+
+```toml
+UPSTASH_REDIS_REST_URL = "YOUR_DATABASE_REST_URL"
+UPSTASH_REDIS_REST_TOKEN = "YOUR_SERVER_SIDE_TOKEN"
+```
+
+Use the REST URL and Standard token from your database's Connect section. Keep
+eviction disabled and never expose the token in browser code or Git. No new
+Gemini key or Python dependency is required. On the actual UTC deployment date,
+initialize once using the configured local credentials:
+
+```bash
+python usage_stats.py init
+```
+
+Initialization leaves existing totals/date untouched. Missing records are not
+automatically recreated by reads or counting. Totals never expire; random request
+IDs with only an action type expire after 30 days. No prompts, answers, plans,
+names, emails, IPs or browser fingerprints are stored. A single Lua operation
+serializes deduplication and increments. The frontend consumes each completion
+marker once after rendering, so old history, navigation and reruns do not count
+again. Clearing chat does not reset totals. Example clicks count only if they
+produce a usable answer. Deliberate unsupported-question refusals count; technical
+failures, unsupported/empty plans and blocked requests do not.
+
+Reads are cached for 30 seconds without polling. Successful writes update the
+submitting visitor immediately. Missing credentials or storage failures show
+"Usage stats temporarily unavailable" without breaking AI features or displaying
+fake zeros. Writes have one three-second attempt and no automatic retries; failed
+writes or a disconnect before rendering may undercount. Deduplication is bounded
+to 30 days, and server-side rendering cannot prove that a person read the result.
+These are practical indicators, not billing-grade or abuse-proof analytics.
+
+Run `python verify_usage_stats.py` for mocked checks, or
+`python verify_usage_stats.py --live` for an isolated durable-store test. The live
+test uses at most 40 storage requests and never changes production totals. Neither
+command makes Gemini calls. Free-plan limits and inactivity archival can affect
+availability; see [pricing](https://upstash.com/pricing/redis) and the
+[inactivity policy](https://upstash.com/docs/redis/help/faq#what-happens-if-my-database-is-not-used).
+Do not recreate empty totals after archival; restore the database and update
+server-side connection settings instead.
 
 ## Limitations
 

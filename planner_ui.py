@@ -3,6 +3,7 @@
 from uuid import uuid4
 
 import streamlit as st
+import usage_stats
 
 from planner import (API_BUDGET, BUDGETS, INTERESTS, MAX_DAYS, MONTHS, RETRIEVAL_MODE,
                      TRANSPORT, build_planner, run_trip, validate_preferences)
@@ -16,7 +17,7 @@ def planner_resources():
     return build_planner(open_retriever(mode=RETRIEVAL_MODE), chat_model(planning=True))
 
 
-def show_planner(limiter, show_evidence, show_text):
+def show_planner(limiter, show_evidence, show_text, stats_panel):
     st.markdown('<div class="conversation-heading"><h1>Make room for the north.</h1>'
                 '<p>A personal trip outline, grounded in the guide.</p></div>', unsafe_allow_html=True)
     st.caption("Travel days include the outward and return journeys. Plans may be partial when the guide lacks details.")
@@ -37,11 +38,14 @@ def show_planner(limiter, show_evidence, show_text):
         try:
             preferences = validate_preferences({"departure": departure, "destination": destination, "days": days,
                                                 "transport": transport, "budget": budget, "month": month, "interests": interests})
-            with limiter.workflow(st.session_state.usage, "trip_plan", str(uuid4()),
+            request_id = str(uuid4())
+            with limiter.workflow(st.session_state.usage, "trip_plan", request_id,
                                   f"{departure} to {destination}", api_budget=API_BUDGET):
                 with st.spinner("Finding routes, stays, and a little inspiration..."):
                     result = run_trip(planner_resources(), preferences, trace=False)
                 st.session_state.trip_plan = result["plan"]
+            if usage_stats.usable_plan(result["plan"]):
+                usage_stats.queue_completion("planner", "trip_plans", request_id)
             st.rerun()
         except (UsageLimitError, ValueError) as error:
             st.info(str(error) if isinstance(error, UsageLimitError)
@@ -84,4 +88,5 @@ def show_planner(limiter, show_evidence, show_text):
         for note in plan.get("app_notes", []):
             st.caption(note)
         st.caption(ALPHA_NOTICE)
+        usage_stats.record_displayed("planner", stats_panel)
     st.caption(TRAVEL_NOTICE)

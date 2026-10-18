@@ -2316,3 +2316,67 @@ The separate reserved hosted checks and final deployment status are recorded on
 [the v1.2 release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.2.0)
 when publication passes its verification gate. A hosted cold restart is not claimed.
 Rollback uses a normal revert of the release merge commit, never a reset or force-push.
+
+
+## Shared completion statistics after v1.2.0
+
+Functional baseline: `49f7ac4`. The public sidebar adds Questions answered and
+Trip plans generated. The original RAG and quota systems are unchanged. The
+v1.2.0 tag remains on its published commit; this feature does not edit a release.
+
+`usage_stats.py` uses authenticated HTTPS requests from the Streamlit server to
+an account-owned Upstash Redis database. A non-expiring hash stores two totals
+and the UTC deployment date. Explicit `python usage_stats.py init` creates it once
+with zero historical counts and never resets an existing hash. Reads/counts fail
+closed to unavailable statistics if setup is missing or invalid. No new dependency
+or additional public endpoint was added. The two REST credentials belong only in
+local environment configuration and Streamlit Secrets.
+
+New successful submissions queue an opaque request UUID in local pending-delivery
+metadata. Chat marks a validated answer or deliberate refusal eligible; a
+validation-induced refusal is excluded. Planner results need complete/partial
+status and usable cited content. The frontend consumes that marker after rendering,
+then attempts the Redis write once. Old results without a new marker are never
+backfilled. Reruns, restored history, view changes, reset actions and example
+button clicks do not independently count. Planner UUIDs are retained from admission.
+The local markers are not authoritative lifetime storage or another chat history.
+
+One Lua operation validates the action, checks the UUID, increments the appropriate
+field and stores a deduplication record. The record contains only UUID/action and
+expires in 30 days; the aggregate totals/date have no TTL. Writes use one three-second
+HTTP attempt without redirects or automatic retries. HTTP, credential or parsing
+failures cannot retry Gemini or fail the completed result. Failed writes may
+undercount; a timeout can also leave acknowledgment uncertain. Reads cache for
+30 seconds, successful writes refresh the display, and unavailable statistics show
+an honest message. Server-side rendering does not prove human viewing. Neither
+unique-user attribution nor billing-grade exactness is claimed.
+
+Verification used mocked completed workflows and an isolated real-store namespace:
+
+- Counter protocol, eligibility, reruns/navigation, history reset, two independent
+  sessions, blocked/technical failures, deliberate refusals, example completions,
+  read caching, write timeouts, missing credentials and corrupt-record checks passed.
+- Real Redis concurrency ran 24 submissions with 12 unique random IDs. The total
+  increased by exactly 12. The trip total also updated, initialization preserved
+  existing totals, event TTL was 30 days and the totals hash had no expiry.
+- A fresh Python process with a new HTTP client read the same real totals.
+  The isolated namespace and its exact test keys were removed afterward.
+- Actual durable-store test cost: 32 storage HTTP requests, plus one read-only
+  cleanup verification. Synthetic writes never touched the production namespace.
+  Production initialization used one additional request and returned zero questions,
+  zero trip plans and a start date of 2026-10-18 UTC. No Gemini calls or document
+  embeddings were made.
+- Existing conversation, planner, quota and v1.2 simplification regression checks
+  passed with external counter transport mocked. They cannot inflate public totals.
+
+Hosted/browser verification is intentionally delegated to the owner, as requested.
+After the push, check both views on desktop and approximately 390px, verify the
+shared labels/start date, and confirm navigation/refresh do not change totals.
+No live AI request is needed for those checks. No hosted visual test or hosted
+cold restart is claimed here. Production initialization and push status are
+reported in the implementation handoff rather than invented in this record.
+
+The free store can be unavailable or archived after extended inactivity. Restore
+its data instead of silently replacing totals with zeros. Counters do not change
+session quotas, Gemini budgets, production tracing, feedback consent settings,
+49 document vectors, historical datasets/results or the existing release tags.

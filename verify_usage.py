@@ -226,7 +226,7 @@ def streamlit_checks():
     from verify_conversation import fixtures
     retriever, chat, queries, _, _ = fixtures()
     limiter, clock, _ = setup()
-    with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
+    with patch("usage_stats._command", return_value=None), patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
             patch("usage_limits.ProcessLimiter", return_value=limiter):
         app = AppTest.from_file(str(rag.ROOT / "app.py"), default_timeout=20).run()
         assert not app.exception

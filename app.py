@@ -7,6 +7,7 @@ import re
 from uuid import uuid4
 
 import streamlit as st
+import usage_stats
 from langgraph.checkpoint.memory import InMemorySaver
 
 from rag import TRAVEL_NOTICE, page_label
@@ -126,6 +127,9 @@ with st.sidebar:
     if st.button("New conversation", icon=":material/edit_square:", key="clear_chat", use_container_width=True):
         st.session_state.pop("conversation", None)
         st.session_state.pop("pending_submission", None)
+        st.session_state.pending_usage_counts = {
+            slot: event for slot, event in st.session_state.get("pending_usage_counts", {}).items()
+            if not slot.startswith("chat:")}
         st.rerun()
     st.caption(f"{limiter.remaining(st.session_state.usage)} of {limiter.policy.chat_requests} chat questions remaining in this session window.")
     st.html('<div class="sidebar-section"><p class="eyebrow">The guide</p>'
@@ -139,13 +143,14 @@ with st.sidebar:
         st.caption("Volunteer through the form. Only opt in and provide an email if you want future testing invitations.")
     st.link_button("Send Feedback", FEEDBACK_URL, icon=":material/rate_review:", use_container_width=True)
     st.caption("Opens Google Forms. Your chat and trip details are not sent automatically.")
+    stats_panel = usage_stats.sidebar_metrics()
     st.html('<p class="sidebar-note">For thoughtful planning.<br>Always check local conditions before you go.</p>')
 
 st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'
         '<span class="workspace-tag"><i></i> Your guide to the north</span></header>')
 if view == "Plan a Trip":
     from planner_ui import show_planner
-    show_planner(limiter, show_answer, show_text)
+    show_planner(limiter, show_answer, show_text, stats_panel)
     st.stop()
 try:
     if "conversation" not in st.session_state:
@@ -164,6 +169,7 @@ with st.container(key="conversation"):
     for index, turn in enumerate(turns):
         show_message({"role": "user", "text": turn["question"]}, f"{index}_user")
         show_message({"role": "assistant", **turn["answer"], "matches": turn["matches"]}, f"{index}_assistant")
+        usage_stats.record_displayed(f"chat:{thread_id}:{index}", stats_panel)
 
 with st.container(key="travel_note"):
     st.caption(TRAVEL_NOTICE)
@@ -182,7 +188,9 @@ if submission:
             with st.container(key="chat_assistant_pending"):
                 with st.chat_message("assistant", avatar=":material/landscape:"):
                     with st.spinner("Searching the guide…"):
-                        run_question(workflow, submission["text"], thread_id=thread_id, trace=False)
+                        result = run_question(workflow, submission["text"], thread_id=thread_id, trace=False)
+        if usage_stats.usable_chat(result):
+            usage_stats.queue_completion(f"chat:{thread_id}:{len(result['turns']) - 1}", "questions", submission["id"])
         st.rerun()
     except UsageLimitError as error:
         st.info(str(error))

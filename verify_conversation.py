@@ -155,7 +155,7 @@ def check_streamlit():
     retriever, chat, queries, _, _ = fixtures()
     policy = Policy(cooldown_seconds=0, workflows_per_minute=100, generation_calls_per_minute=100,
                     embedding_calls_per_minute=100)  # Test-only capacity; not provider quotas.
-    with patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
+    with patch("usage_stats._command", return_value=None), patch("workflow.open_retriever", return_value=retriever), patch("workflow.chat_model", return_value=chat), \
             patch("usage_limits.Policy.from_env", return_value=policy):
         app = AppTest.from_file(str(rag.ROOT / "app.py"), default_timeout=20).run()
         assert not app.exception
