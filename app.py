@@ -123,6 +123,7 @@ def empty_state():
 with st.sidebar:
     st.html(f'<div class="sidebar-brand"><div class="brand-mark">{MOUNTAIN}</div>'
             '<div><strong>North Tours</strong><span>Your Pakistan travel companion</span></div></div>')
+    stats_panel = usage_stats.sidebar_metrics()
     view = st.radio("Explore", ["Chat", "Plan a Trip"], key="app_view", label_visibility="collapsed")
     if st.button("New conversation", icon=":material/edit_square:", key="clear_chat", use_container_width=True):
         st.session_state.pop("conversation", None)
@@ -143,7 +144,6 @@ with st.sidebar:
         st.caption("Volunteer through the form. Only opt in and provide an email if you want future testing invitations.")
     st.link_button("Send Feedback", FEEDBACK_URL, icon=":material/rate_review:", use_container_width=True)
     st.caption("Opens Google Forms. Your chat and trip details are not sent automatically.")
-    stats_panel = usage_stats.sidebar_metrics()
     st.html('<p class="sidebar-note">For thoughtful planning.<br>Always check local conditions before you go.</p>')
 
 st.html('<header class="workspace-header"><span>Pakistan North Tours AI</span>'

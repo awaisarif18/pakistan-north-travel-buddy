@@ -14,7 +14,7 @@ html, body, [data-testid="stApp"] { font-family: var(--font); color: var(--ink);
 [data-testid="stToolbarActions"], [data-testid="stAppDeployButton"], [data-testid="stMainMenu"] { display: none; }
 [data-testid="stMainBlockContainer"] { max-width: 57rem; padding: 2.4rem 2.6rem 1.5rem; }
 [data-testid="stSidebar"] { background: #f0f4f0; border-right: 1px solid var(--line); }
-[data-testid="stSidebarUserContent"] { padding: 1.2rem 1.5rem 2rem; }
+[data-testid="stSidebarUserContent"] { padding: 0.3rem 1.5rem 2rem; }
 [data-testid="stSidebarResizeHandle"] { opacity: 0; }
 [data-testid="stSidebar"] [data-testid="stExpander"] { border: 0; background: transparent; }
 [data-testid="stSidebar"] summary p { font-size: 0.875rem; }
@@ -24,7 +24,7 @@ h1, h2, h3 { font-family: var(--font); font-weight: 600; text-wrap: balance; }
 button { font-family: var(--font) !important; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--pine) !important; outline-offset: 4px; }
 
-.sidebar-brand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 2.1rem; }
+.sidebar-brand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.35rem; }
 .brand-mark, .welcome-mark { display: grid; place-items: center; color: var(--pine); background: #e0ebe2; border: 1px solid #d3e2d6; }
 .brand-mark { width: 42px; height: 42px; border-radius: 14px; flex-shrink: 0; }
 .mountain-icon { display: block; position: relative; width: 32px; height: 26px; overflow: hidden; }
@@ -45,11 +45,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--pine) !importan
 .sidebar-facts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.5rem 0 2rem; font-variant-numeric: tabular-nums; }
 .sidebar-facts span { font-size: 0.6875rem; font-weight: 500; color: #496653; border: 1px solid #d5e2d8; border-radius: 7px; padding: 0.3rem 0.45rem; }
 .sidebar-note { color: var(--muted); font-size: 0.75rem; line-height: 1.7; margin-top: 2.5rem; border-top: 1px solid var(--line); padding-top: 1.3rem; }
-.usage-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; margin-top: 1.4rem; padding: 1rem 0; border-top: 1px solid var(--line); }
-.usage-stats strong { display: block; font-size: 1.3rem; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.usage-stats span { display: block; font-size: 0.75rem; line-height: 1.5; color: var(--muted); margin-top: 0.3rem; }
-.usage-stats p { grid-column: 1 / -1; font-size: 0.6875rem; color: var(--muted); margin: 0.2rem 0 0; }
-.usage-stats-unavailable { font-size: 0.75rem; line-height: 1.6; color: var(--muted); margin-top: 1.4rem; }
+.usage-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; margin: 0 0 0.65rem; padding: 0.9rem; border: 1px solid #155f50; border-radius: 16px; background: linear-gradient(125deg, #125d47, #126a57 65%, #1a6174); box-shadow: 0 5px 14px #125d4717; }
+.usage-stats strong { display: block; color: #fff; font-size: 1.6rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.usage-stats span { display: block; font-size: 0.75rem; font-weight: 500; line-height: 1.5; color: #e2f1ec; margin-top: 0.3rem; }
+.usage-stats p { grid-column: 1 / -1; font-size: 0.75rem; line-height: 1.5; color: #d1e7df; margin: 0.15rem 0 0; }
+.usage-stats-unavailable { font-size: 0.75rem; line-height: 1.6; color: var(--muted); margin: 0 0 0.65rem; padding: 0.8rem; border: 1px solid var(--line); border-radius: 13px; background: var(--soft); }
 
 .workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 1.1rem; border-bottom: 1px solid var(--line); }
 .workspace-header > span:first-child { font-size: 0.8125rem; font-weight: 600; letter-spacing: -0.01em; }
