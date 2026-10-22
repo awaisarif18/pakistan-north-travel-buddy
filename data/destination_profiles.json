@@ -1,0 +1,667 @@
+{
+  "version": 2,
+  "status": "owner-approved controlled development references; no recommendation quality result implied",
+  "profiles": [
+    {
+      "id": "hunza",
+      "name": "Hunza / Nagar",
+      "chapter_group": "Region 1",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "accommodation",
+          "quote": "Mid-range: PKR 4,000–9,000/night for private bathroom and hot water — a real consideration at altitude.",
+          "chunk_id": "p020-022-8d8b2710273b",
+          "chunk_sha256": "d334babdcf3fd52ebe1fa8c5f229db681da1894984d99d7d972977db6a24c40d",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 20,
+          "page_end": 22,
+          "context": "Base costs & food in Hunza",
+          "subject": "Hunza mid-range room category",
+          "scope_note": "Guide estimate for this category: private bathroom and hot water. Not every hotel, a current tariff or privacy guarantee.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "activity",
+          "quote": "Route: A 3–4 hour round trip through light forest and traditional Gojal farmland, up to panoramic views of Attabad Lake and the surrounding villages. Difficulty: Easy — a \"hidden gem for those who love nature without the burn,\" good for a late start, sunset trek, or mellow day with local guides.",
+          "chunk_id": "p033-035-97d114c1c3a8",
+          "chunk_sha256": "ce7f78b559cae77bb949ca9a3019ff926b6e3f2dd885e3856be41b2e7804fbbe",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 33,
+          "page_end": 35,
+          "context": "Buskochi (Baskochi) Top",
+          "subject": "Buskochi / Baskochi Top",
+          "scope_note": "This named hike is described as easy but takes 3-4 hours round trip; not a minimal-walking guarantee.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "light_walk",
+          "quote": "Route: Gilgit → Nagar → Minapin → Miacher village → Kho Meadows, about 3-4 hours total from Gilgit City. A short ~30 minute walk from the parking area up to the meadow itself.",
+          "chunk_id": "p033-035-97d114c1c3a8",
+          "chunk_sha256": "ce7f78b559cae77bb949ca9a3019ff926b6e3f2dd885e3856be41b2e7804fbbe",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 33,
+          "page_end": 35,
+          "context": "Kho Nagar Valley (Miacher Kho Meadows)",
+          "subject": "Miacher Kho Meadows, Nagar",
+          "scope_note": "About 30 minutes from parking to the meadow, not certified accessible or a 30-minute total journey.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "scenery",
+          "quote": "What's there: Views toward Diran Peak, Rakaposhi, Hunza's Duikar viewpoint, Hapakun Meadows, and Rakaposhi Base Camp — essentially a lower-effort viewpoint over the same peaks Rakaposhi Base Camp trekkers work much harder to see. Good fit for: an easy day trip if you're already in Minapin for Rakaposhi Base Camp and want a lighter add-on, or a standalone half-day out of Gilgit/Nagar.",
+          "chunk_id": "p033-035-97d114c1c3a8",
+          "chunk_sha256": "ce7f78b559cae77bb949ca9a3019ff926b6e3f2dd885e3856be41b2e7804fbbe",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 33,
+          "page_end": 35,
+          "context": "Kho Nagar Valley (Miacher Kho Meadows)",
+          "subject": "Miacher Kho Meadows, Nagar",
+          "scope_note": "Views and lower-effort comparison apply to this meadow, not every Hunza/Nagar activity.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "skardu",
+      "name": "Skardu / Kachura",
+      "chapter_group": "Region 2",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "accommodation",
+          "quote": "Hotels: Range widely — popular mid-range options run roughly PKR 14,000–30,800/night, with luxury lakeside resorts near Kachura going up to PKR 67,750+. Budget guesthouses exist in Skardu city center at lower rates than this, though exact figures are harder to pin down online — worth checking on arrival or via Bookme.",
+          "chunk_id": "p037-039-63413879f3c2",
+          "chunk_sha256": "bbea5f50c022d5c749a721ea034d8a1e0a041adac95891eda46fc289858a243c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 37,
+          "page_end": 39,
+          "context": "Skardu city",
+          "subject": "Skardu city hotels and Kachura resort examples",
+          "scope_note": "Guide lodging categories and historical prices; the Kachura resort range does not apply to every Skardu hotel.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "attractions",
+          "quote": "What's in the city itself: Kharpocho Fort (\"King of Forts,\" built late 17th century by Ali Sher Khan Anchan) overlooks the city and the confluence of the Indus and Shigar rivers, the Katpana Cold Desert (also called Biama Nakpo), Upper and Lower Kachura Lakes (Lower Kachura = Shangrila, with its famous red-roof resort), and Satpara Lake",
+          "chunk_id": "p037-039-63413879f3c2",
+          "chunk_sha256": "bbea5f50c022d5c749a721ea034d8a1e0a041adac95891eda46fc289858a243c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 37,
+          "page_end": 39,
+          "context": "Skardu city",
+          "subject": "Named Skardu-area attractions",
+          "scope_note": "Attraction inventory, not evidence that all are within city limits, easy to walk around or step-free.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "access",
+          "quote": "By air: PIA, Airblue, and AirSial all fly Islamabad → Skardu (KDU) direct, about 1–1h10m in the air, roughly 24 weekly departures between them. Fares run roughly PKR 12,000–45,000 one-way depending on timing and season — book early, this route sells out fast in peak season (Eid, summer holidays). Flights are almost always morning departures since mountain visibility is best early, and weather cancellations are common — don't book it on a tight schedule.",
+          "chunk_id": "p037-039-63413879f3c2",
+          "chunk_sha256": "bbea5f50c022d5c749a721ea034d8a1e0a041adac95891eda46fc289858a243c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 37,
+          "page_end": 39,
+          "context": "Getting there from Islamabad/Rawalpindi",
+          "subject": "Islamabad to Skardu flights",
+          "scope_note": "Guide-described approach and cancellation risk; frequency, fare and availability need current verification.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "khaplu",
+      "name": "Khaplu",
+      "chapter_group": "Region 2",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "access",
+          "quote": "Route: About 103km / 64 miles east of Skardu, roughly 2 hours by jeep along the Skardu-Siachen road, following the Shyok River.",
+          "chunk_id": "p042-044-232729beb314",
+          "chunk_sha256": "76592e977541a7bc85661823a222e38c9b5f61614c1833a96a7df0193c649f8b",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 42,
+          "page_end": 44,
+          "context": "Khaplu Valley (Ghanche District)",
+          "subject": "Skardu to Khaplu approach",
+          "scope_note": "The cited approach is by jeep, not proof of suitability for any vehicle or current road access.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "culture",
+          "quote": "What's there: Khaplu Fort (Yabgo Khar, mid-19th century, former royal residence — now a Serena heritage hotel), the 14th-century Chaqchan Mosque (Tibetan/Mughal/Persian architectural fusion, not open to non-Muslim visitors), and Khaplu Khanqah (built 1712).",
+          "chunk_id": "p042-044-232729beb314",
+          "chunk_sha256": "76592e977541a7bc85661823a222e38c9b5f61614c1833a96a7df0193c649f8b",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 42,
+          "page_end": 44,
+          "context": "Khaplu Valley (Ghanche District)",
+          "subject": "Named Khaplu heritage sites",
+          "scope_note": "The hotel is a named example. Visitor restrictions are guide-described, not independently verified current policy.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "activity",
+          "quote": "Sogha Lake (Crystal Lake): In Saling village near Khaplu — reachable by jeep (15–25 min) or a 1.5- hour trek from the nearby village, about 7km from Khaplu town.",
+          "chunk_id": "p042-044-232729beb314",
+          "chunk_sha256": "76592e977541a7bc85661823a222e38c9b5f61614c1833a96a7df0193c649f8b",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 42,
+          "page_end": 44,
+          "context": "Khaplu Valley (Ghanche District)",
+          "subject": "Sogha / Crystal Lake approach",
+          "scope_note": "Approach estimates, not wheelchair access or guaranteed service.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "astore",
+      "name": "Astore / Rama",
+      "chapter_group": "Region 3",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "access",
+          "quote": "What's there: Astore itself sits at about 2,600m (8,500ft), 60km from Gilgit, serving mainly as a jumping-off base. Rama Meadows/Lake is about 10-13km from Astore, roughly 1h40 by jeep on a rough 4x4-only road — a popular easy add-on for camping and stargazing, not on your original list by name but effectively part of the same trip since it's this close to Astore.",
+          "chunk_id": "p051-053-ff8a6c292dbc",
+          "chunk_sha256": "4377237a2051c602e1dec10e596f4f4ccfa3608384f92b8a529ee1f2ce74735e",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 51,
+          "page_end": 53,
+          "context": "Astore town & Rama Meadows/Lake",
+          "subject": "Astore and Rama Meadows/Lake",
+          "scope_note": "Rama approach is rough 4x4 travel; easy add-on does not establish walking difficulty. The guide gives different Gilgit distance figures; do not resolve silently.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "approach",
+          "quote": "To Astore town: No single direct route — fly to Gilgit then 4-5 hours by road via Jaglot (120km), or fly to Skardu and cross the Deosai Plain (152km, 4-5 hours, only open roughly June-October), or drive the full KKH to Thalichi near Chilas then the secondary Astore road — about 630km / 15-17 hours total by road.",
+          "chunk_id": "p049-051-51be39ff7ee4",
+          "chunk_sha256": "c680bc9b22f3c4f7dedebab7ba0d07365e44662ac0db11ff1962d0191852717c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 49,
+          "page_end": 51,
+          "context": "Getting there from Islamabad/Rawalpindi",
+          "subject": "Approaches to Astore",
+          "scope_note": "Route-specific guide estimates. Deosai season applies to that approach, not every Astore route or present opening.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "fairy-meadows",
+      "name": "Fairy Meadows",
+      "chapter_group": "Region 3",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "approach",
+          "quote": "Route: Islamabad → Raikot Bridge on the KKH (~540km, 10-12 hours) → 4x4 jeep from Raikot Bridge to Tattu village (15-16km, 90-120 min on a narrow single-lane track, PKR 12,000-15,000 per jeep for up to 6 people) → trek 3-5.5km on foot (2- 3 hours) to Fairy Meadows.",
+          "chunk_id": "p051-053-ff8a6c292dbc",
+          "chunk_sha256": "4377237a2051c602e1dec10e596f4f4ccfa3608384f92b8a529ee1f2ce74735e",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 51,
+          "page_end": 53,
+          "context": "Fairy Meadows & Nanga Parbat Base Camp",
+          "subject": "Raikot to Tattu to Fairy Meadows approach",
+          "scope_note": "Keep jeep transfer and the subsequent 2-3-hour walk together; the jeep does not reach the meadow.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "transfer",
+          "quote": "This jeep track is genuinely not bike territory — narrow, one-lane, and normally driven only by experienced local jeep drivers; leave the bike at Raikot Bridge or Chilas and go in by the local jeep service.",
+          "chunk_id": "p051-053-ff8a6c292dbc",
+          "chunk_sha256": "4377237a2051c602e1dec10e596f4f4ccfa3608384f92b8a529ee1f2ce74735e",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 51,
+          "page_end": 53,
+          "context": "Fairy Meadows & Nanga Parbat Base Camp",
+          "subject": "Raikot to Tattu jeep leg",
+          "scope_note": "The guide advises leaving the bike and using a local jeep. Parking, availability and current access remain unverified.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "season_difficulty",
+          "quote": "Season: Mid-June to mid-September is most reliable for both the jeep track being open and Nanga Parbat actually being visible. Difficulty: Moderate — this is genuinely one of the more accessible \"big mountain\" experiences in the entire country, which is exactly why it's so popular.",
+          "chunk_id": "p051-053-ff8a6c292dbc",
+          "chunk_sha256": "4377237a2051c602e1dec10e596f4f4ccfa3608384f92b8a529ee1f2ce74735e",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 51,
+          "page_end": 53,
+          "context": "Fairy Meadows & Nanga Parbat Base Camp",
+          "subject": "Fairy Meadows season and difficulty",
+          "scope_note": "Guide-described moderate difficulty and season, not guaranteed visibility, safe conditions or an open track.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "accommodation",
+          "quote": "Cabin stays at places like Broad View Hotel run about $60/person twin-share with breakfast and dinner (roughly PKR 16,700).",
+          "chunk_id": "p051-053-ff8a6c292dbc",
+          "chunk_sha256": "4377237a2051c602e1dec10e596f4f4ccfa3608384f92b8a529ee1f2ce74735e",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 51,
+          "page_end": 53,
+          "context": "Fairy Meadows & Nanga Parbat Base Camp",
+          "subject": "Fairy Meadows cabin example",
+          "scope_note": "One named cabin example with twin-share and meals. Not a current quote, comfort rating, private-couple-room or availability guarantee.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "naltar",
+      "name": "Naltar",
+      "chapter_group": "Region 4",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "access",
+          "quote": "Route: Gilgit → Nomal village (turn off the KKH) → Naltar Bala (Upper Naltar), about 34-40km, 1.5-2 hours. The road to Naltar Bala itself is manageable; the lakes beyond require a separate 4x4 jeep leg — old Willys jeeps with reinforced suspension are the standard local vehicle for this stretch, and taking your own vehicle (bike included) isn't advisable for the final rocky, boulder-strewn section.",
+          "chunk_id": "p057-058-1e3220f30d27",
+          "chunk_sha256": "d7f1515b0f2ab3718cbbc63c5cf34b6af438b09d74dafa969f260e2f81d57f0c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 57,
+          "page_end": 58,
+          "context": "Naltar Valley",
+          "subject": "Naltar Bala and onward lake access",
+          "scope_note": "Separate approach to Naltar Bala from the additional rough 4x4 lake leg.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "attractions",
+          "quote": "The lakes: Collectively called the Naltar Lakes or Bashkiri Lakes — Satrangi Lake (Bashkiri I, the famous \"seven-colored\" one, named for the mix of hues from moss and underwater vegetation), Blue Lake (Bashkiri II, 1km from Satrangi), and Feroza Lake (Bashkiri III), roughly 12-17km from Naltar Bala depending on source.",
+          "chunk_id": "p057-058-1e3220f30d27",
+          "chunk_sha256": "d7f1515b0f2ab3718cbbc63c5cf34b6af438b09d74dafa969f260e2f81d57f0c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 57,
+          "page_end": 58,
+          "context": "Naltar Valley",
+          "subject": "Named Naltar lakes",
+          "scope_note": "Names and relative distances only, not a mobility-access assessment.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "season",
+          "quote": "Season: May-October for the lakes/valley in general; winter for skiing.",
+          "chunk_id": "p057-058-1e3220f30d27",
+          "chunk_sha256": "d7f1515b0f2ab3718cbbc63c5cf34b6af438b09d74dafa969f260e2f81d57f0c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 57,
+          "page_end": 58,
+          "context": "Naltar Valley",
+          "subject": "Naltar valley/lakes and skiing",
+          "scope_note": "May-October lake/valley season and winter skiing are distinct; neither proves January lake access.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "geography",
+          "quote": "Geography note: Naltar Valley is technically reached via Nomal (off the KKH before Hunza proper) and administratively sits closer to Gilgit district than Hunza — I'm covering it here since you already know Naltar from your Sheesha Lake visit, but I'll give it fuller treatment (Naltar Lakes/Bashkiri/Satrangi, the ski resort, Naltar- Pakora trek) alongside Kohistan/Gilgit-corridor spots in a later region.",
+          "chunk_id": "p033-035-97d114c1c3a8",
+          "chunk_sha256": "ce7f78b559cae77bb949ca9a3019ff926b6e3f2dd885e3856be41b2e7804fbbe",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 33,
+          "page_end": 35,
+          "context": "Turgil Meadows (Naltar)",
+          "subject": "Naltar geography relative to Hunza",
+          "scope_note": "Geographic qualification about Naltar, not a Hunza attraction or administrative inference from chapter grouping.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "naran",
+      "name": "Naran / Kaghan",
+      "chapter_group": "Region 5",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "season",
+          "quote": "Season: May-October, June-August peak summer. Babusar Top (the pass connecting Kaghan to Gilgit-Baltistan) closes with the first winter snow.",
+          "chunk_id": "p060-062-c3e50a36d30a",
+          "chunk_sha256": "07963423c9e813c655ad18b0434dbf104f5151210a905eafd0f91a2a0297114f",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 60,
+          "page_end": 62,
+          "context": "Getting to Kaghan Valley",
+          "subject": "Kaghan season and Babusar Top",
+          "scope_note": "Pass closure advice applies to Babusar, not an automatic closure of all Naran attractions.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "access",
+          "quote": "Lake Saiful Muluk: About 9-10km from Naran, 3,210-3,224m, reached by a rough 4x4 jeep track in under an hour or a hike of about 3 hours — jeeps from Naran Bazaar run PKR 1,200-1,800 per shared seat or PKR 6,000-9,000 for the full jeep; personal vehicles aren't recommended on this stretch.",
+          "chunk_id": "p060-062-c3e50a36d30a",
+          "chunk_sha256": "07963423c9e813c655ad18b0434dbf104f5151210a905eafd0f91a2a0297114f",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 60,
+          "page_end": 62,
+          "context": "Kaghan core",
+          "subject": "Lake Saiful Muluk approach",
+          "scope_note": "Keep rough jeep approach and alternative approximately 3-hour hike distinct. No step-free-access guarantee.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "approach",
+          "quote": "By local bus — Faisal Movers (you asked about this one): Islamabad → Naran runs PKR 2,800–3,400 depending on class (Yutong executive mini vs standard), about 7.5 hours. Islamabad → Kaghan runs about PKR 3,400; Lahore → Naran is around PKR 4,000, Multan → Naran around PKR 5,400. Onboard: WiFi, LCD screens, charging ports, reclining seats, AC/heating.",
+          "chunk_id": "p060-062-c3e50a36d30a",
+          "chunk_sha256": "07963423c9e813c655ad18b0434dbf104f5151210a905eafd0f91a2a0297114f",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 60,
+          "page_end": 62,
+          "context": "Getting to Kaghan Valley",
+          "subject": "Listed bus services to Naran/Kaghan",
+          "scope_note": "Amenities refer to bus classes, not hotels; fares/services require current confirmation.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "neelum",
+      "name": "Neelum / Ratti Gali / Arang Kel",
+      "chapter_group": "Region 5",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "activity",
+          "quote": "Ratti Gali Lake: About 106-120km from Muzaffarabad via Dowarian, 3,683-3,698m. Jeep to base camp (PKR 5,000-7,000 round trip) then a 40- minute to 2-hour hike to the lake itself. Moderate, beginner-friendly.",
+          "chunk_id": "p064-065-eeaf0cd09563",
+          "chunk_sha256": "50df301cf1badd47e5d46fa2acfde17bcd8570a3ff764fc0afa9242383332d4c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 64,
+          "page_end": 65,
+          "context": "Neelum Valley (Azad Kashmir)",
+          "subject": "Ratti Gali Lake approach",
+          "scope_note": "Beginner-friendly/moderate describes the final hike after jeep travel, not a comfort or fitness guarantee for the whole trip.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "activity",
+          "quote": "about a 1.5-2.5 hour hike from Kel, or a chairlift for those who'd rather skip the climb — worth staying overnight here rather than in Kel itself, since it's considerably more scenic.",
+          "chunk_id": "p064-065-eeaf0cd09563",
+          "chunk_sha256": "50df301cf1badd47e5d46fa2acfde17bcd8570a3ff764fc0afa9242383332d4c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 64,
+          "page_end": 65,
+          "context": "Neelum Valley (Azad Kashmir)",
+          "subject": "Arang Kel approach",
+          "scope_note": "Elevation excluded because of a source unit inconsistency. Chairlift mention does not establish a walk-free visit or current operation.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "approach",
+          "quote": "Getting to Muzaffarabad: Islamabad → Murree/Kohala → Muzaffarabad, about 3-4 hours, then the Neelum Valley road runs upstream: Athmuqam → Sharda → Kel → Keran → Taobat. CNIC is mandatory throughout since the valley runs close to the Line of Control — carry it regardless of how you're traveling.",
+          "chunk_id": "p064-065-eeaf0cd09563",
+          "chunk_sha256": "50df301cf1badd47e5d46fa2acfde17bcd8570a3ff764fc0afa9242383332d4c",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 64,
+          "page_end": 65,
+          "context": "Neelum Valley (Azad Kashmir)",
+          "subject": "Neelum Valley approach and identification note",
+          "scope_note": "Guide approach and CNIC advice, not validated turn-by-turn sequence or current permissions assurance.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "review_notes": [
+        "Arang Kel elevation omitted from active excerpts because the PDF contains inconsistent units. The original passage and chunk remain unchanged."
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "kalam",
+      "name": "Kalam / Swat",
+      "chapter_group": "Region 6",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "base_accommodation",
+          "quote": "Kalam is the practical base for almost everything north of it — Utror, Gabral, Matiltan, Mahodand Lake, and the jeep hire point for most of the lakes below. Jeep hire in the area generally runs PKR 3,000-5,000 for a half- day/single destination, up to PKR 10,000-12,000 for longer trips like Mahodand, and budget hotel doubles run roughly PKR 800-1,000 in Mingora, PKR 3,000- 5,000 in Kalam itself.",
+          "chunk_id": "p071-072-cc358ad79e0e",
+          "chunk_sha256": "7eb5c73777d26a076fdc7a835698611307f4a017de93aadae38a6ffe848561d1",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 71,
+          "page_end": 72,
+          "context": "Swat/Kalam/Malam Jabba/Palogha",
+          "subject": "Kalam base and listed Mingora/Kalam rooms",
+          "scope_note": "Prices describe budget doubles, not room comfort, facilities, privacy or a single price across the valley.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "transfer",
+          "quote": "Within the valley: shared jeeps/wagons connect Mingora → Bahrain → Kalam → Utror/Matiltan, cheap and frequent in season.",
+          "chunk_id": "p069-070-ef7a401bc920",
+          "chunk_sha256": "54f8c9fb1b940eb829503bc4a254013ed0135411c41892f8724a1847cddcdeb7",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 69,
+          "page_end": 70,
+          "context": "Within the valley:",
+          "subject": "Listed local valley connections",
+          "scope_note": "Guide-described shared services, not confirmed current frequency, timetables or access to every attraction.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "kumrat",
+      "name": "Kumrat / Jahaz Banda / Katora",
+      "chapter_group": "Region 6",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "geography",
+          "quote": "Good news: these turn out to be the same trek, not two separate lakes — so nothing to untangle. Katora Lake is reached via Jahaz Banda Meadows; Jahaz Banda is the overnight stop and Katora Lake is the destination beyond it, in the upper reaches of Kumrat Valley, Upper Dir District.",
+          "chunk_id": "p071-072-cc358ad79e0e",
+          "chunk_sha256": "7eb5c73777d26a076fdc7a835698611307f4a017de93aadae38a6ffe848561d1",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 71,
+          "page_end": 72,
+          "context": "Kumrat Valley, Jahaz Banda & Katora Lake",
+          "subject": "Katora Lake via Jahaz Banda Meadows, Upper Dir",
+          "scope_note": "Jahaz Banda is a meadow/overnight stop; Katora is a lake. Chapter grouping does not put Upper Dir in Swat.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "access_duration",
+          "quote": "Route: Islamabad → Swat Motorway to Chakdara → N-45 through Timergara and Dir → Thal (last town for normal vehicles), ~370-460km, 8-10 hours → jeep from Thal to Taki/Takki Banda, 16km rough track, ~1.5 hours, PKR 5,000 one-way or PKR 10,000-12,000 round trip with overnight → trek 3-5 hours to Jahaz Banda Meadows (camping) → further 3-4 hours to Katora Lake.",
+          "chunk_id": "p071-072-cc358ad79e0e",
+          "chunk_sha256": "7eb5c73777d26a076fdc7a835698611307f4a017de93aadae38a6ffe848561d1",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 71,
+          "page_end": 72,
+          "context": "Kumrat Valley, Jahaz Banda & Katora Lake",
+          "subject": "Thal to Taki/Takki Banda to Jahaz Banda to Katora",
+          "scope_note": "Keep jeep travel, 3-5 hours to the meadow and further 3-4 hours to the lake distinct. No universal beginner classification or motorbike motorway recommendation.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "facilities",
+          "quote": "Practical note: no electricity or real food options at Katora Lake itself — carry supplies, and bring a power bank and flashlight. This is genuinely remote-feeling despite being a well-known name.",
+          "chunk_id": "p071-072-cc358ad79e0e",
+          "chunk_sha256": "7eb5c73777d26a076fdc7a835698611307f4a017de93aadae38a6ffe848561d1",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 71,
+          "page_end": 72,
+          "context": "Kumrat Valley, Jahaz Banda & Katora Lake",
+          "subject": "Katora Lake facilities",
+          "scope_note": "No-electricity/food limitation applies at the lake, not the whole valley or every overnight stop.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "kalash",
+      "name": "Chitral / Kalash",
+      "chapter_group": "Region 7",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "access",
+          "quote": "Route from Chitral: Chitral → Ayun (turn-off village) → jeep track into whichever valley, about 35-45km total, 2-3 hours. Bumburet's road is the most reliable/developed; Rumbur and Birir's tracks are narrower, steeper, and more weather-exposed.",
+          "chunk_id": "p081-083-d64cf441cb82",
+          "chunk_sha256": "2602735ff69b7ee93220bb837620c559a48dde5314afcf99611766447c8b55d9",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 81,
+          "page_end": 83,
+          "context": "Kalash Valleys (Bumburet, Rumbur, Birir)",
+          "subject": "Chitral to Ayun to Kalash valleys",
+          "scope_note": "Valleys have different jeep-track characteristics; avoid one access/suitability claim for all three.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "accommodation",
+          "quote": "Accommodation: Chitral town has 40+ hotels; Bumburet has 30+, mostly smaller; Rumbur about 6, Birir about 5 — Bumburet is clearly the most set up for visitors of the three.",
+          "chunk_id": "p081-083-d64cf441cb82",
+          "chunk_sha256": "2602735ff69b7ee93220bb837620c559a48dde5314afcf99611766447c8b55d9",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 81,
+          "page_end": 83,
+          "context": "Kalash Valleys (Bumburet, Rumbur, Birir)",
+          "subject": "Chitral and separate Kalash valley lodging inventories",
+          "scope_note": "Counts indicate visitor infrastructure, not rating, room quality, privacy, accessibility or current availability.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "etiquette",
+          "quote": "Etiquette note: this is a living religious minority culture, not a museum exhibit — the usual courtesies (asking before photographing people, dressing modestly, not treating festivals as pure spectacle) apply more than at most other stops on this list.",
+          "chunk_id": "p081-083-d64cf441cb82",
+          "chunk_sha256": "2602735ff69b7ee93220bb837620c559a48dde5314afcf99611766447c8b55d9",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 81,
+          "page_end": 83,
+          "context": "Kalash Valleys (Bumburet, Rumbur, Birir)",
+          "subject": "Visits to Kalash communities",
+          "scope_note": "Guide etiquette advice; cultural interest does not override consent or respect for residents.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    },
+    {
+      "id": "galliyat",
+      "name": "Galliyat / Nathiagali",
+      "chapter_group": "Region 8",
+      "verification_status": "verified",
+      "facts": [
+        {
+          "attribute": "approach",
+          "quote": "Islamabad → Murree Expressway → Dunga Gali → Nathiagali, about 90-94km, roughly 2.5-3 hours — Lahore is about 7 hours. This is a genuinely easy bike or bus trip compared to almost everything else on this list — paved road the whole way, no jeep sections, no altitude concerns until you're actually on the trail.",
+          "chunk_id": "p087-088-8428f4e31885",
+          "chunk_sha256": "3a36979ebbb697ef559edbe9a54ab20ea5fd8efa9872dbddc8e1a18a0d644f8f",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 87,
+          "page_end": 88,
+          "context": "Getting there",
+          "subject": "Road approach to Nathiagali",
+          "scope_note": "Paved approach and travel estimates do not establish trail accessibility or absence of altitude effects.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "trek_duration",
+          "quote": "Route: The trailhead is just before Nathiagali bazaar, a right turn toward the Governor House and church. Trek to the top takes roughly 3-5 hours depending on pace and pack weight.",
+          "chunk_id": "p087-088-8428f4e31885",
+          "chunk_sha256": "3a36979ebbb697ef559edbe9a54ab20ea5fd8efa9872dbddc8e1a18a0d644f8f",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 87,
+          "page_end": 88,
+          "context": "Miranjani Peak",
+          "subject": "Miranjani ascent",
+          "scope_note": "3-5 hours is to the top, not a stated round-trip duration or a requirement for every Galliyat visit.",
+          "source_version": "guide-8bea3692232a"
+        },
+        {
+          "attribute": "water",
+          "quote": "Practical note: no water source on the trail itself — carry at least 1.5L round trip.",
+          "chunk_id": "p087-088-8428f4e31885",
+          "chunk_sha256": "3a36979ebbb697ef559edbe9a54ab20ea5fd8efa9872dbddc8e1a18a0d644f8f",
+          "source": "pakistan-north-tours-final.pdf",
+          "page_start": 87,
+          "page_end": 88,
+          "context": "Miranjani Peak",
+          "subject": "Miranjani trail water",
+          "scope_note": "Water advice applies to this trail, not every Galliyat activity.",
+          "source_version": "guide-8bea3692232a"
+        }
+      ],
+      "unknowns": [
+        "Current access, road conditions and availability",
+        "Individual mobility suitability and verified step-free access",
+        "Privacy and current accommodation facilities unless specifically documented"
+      ],
+      "approval_scope": "controlled v1.3 development pilot only; not production or current travel verification"
+    }
+  ],
+  "source_versions": {
+    "guide-8bea3692232a": {
+      "source_type": "pdf",
+      "source": "pakistan-north-tours-final.pdf",
+      "sha256": "8bea3692232a56c804a86d6d7940ea62c61195eacb9a4ecdf9e49b55927ef213",
+      "review_status": "verified",
+      "approval_scope": "controlled v1.3 development pilot only"
+    }
+  }
+}

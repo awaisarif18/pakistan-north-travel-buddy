@@ -126,6 +126,20 @@ class ProcessLimiter:
         if len(self.calls[kind]) + self.reserved[kind] + additional > cap:
             raise UsageLimitError(BUSY)
 
+    def extend(self, reservation, budget):
+        """Reserve a bounded second pass without admitting another user submission."""
+        if not budget or set(budget) - set(KINDS) or any(type(n) is not int or n < 0 for n in budget.values()):
+            raise ValueError("Invalid API-call reservation extension.")
+        with self.lock:
+            now = self.clock()
+            if not reservation["active"] or now < self.blocked_until:
+                raise UsageLimitError(BUSY)
+            for kind, count in budget.items():
+                self._capacity(kind, now, count)
+            for kind, count in budget.items():
+                reservation["remaining"][kind] += count
+                self.reserved[kind] += count
+
     @contextmanager
     def workflow(self, usage, action, request_id, text, *, api_budget=None):
         if action not in {"chat", "trip_plan"}:
@@ -222,3 +236,10 @@ def api_call(kind, *, input_tokens=0):
 def question_limit():
     current = _CURRENT_LIMITER.get()
     return current[0].policy.question_chars if current is not None else Policy().question_chars
+
+
+def reserve_additional_calls(**budget):
+    current = _CURRENT_LIMITER.get()
+    if current is not None:
+        limiter, reservation = current
+        limiter.extend(reservation, budget)

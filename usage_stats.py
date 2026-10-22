@@ -118,6 +118,8 @@ def record_completion(kind, request_id, *, namespace=NAMESPACE):
 
 def usable_chat(state):
     answer, payload = state.get("answer", {}), state.get("payload", {})
+    if answer.get("technical_failure") or answer.get("clarification"):
+        return False
     if not isinstance(answer.get("text"), str) or not answer["text"].strip():
         return False
     if answer.get("answerable") is True:

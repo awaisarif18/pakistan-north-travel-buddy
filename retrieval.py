@@ -1,6 +1,7 @@
 """Keyword retrieval and rank fusion over existing Chroma passages."""
 
 from typing import Any
+from itertools import zip_longest
 import math
 import re
 
@@ -36,6 +37,19 @@ def select_chat_evidence(query, candidates):
     scores = [sum(weights.get(term, 0) for term in words) for words in terms]
     fifth = max(range(4, len(candidates)), key=lambda i: (scores[i], -i))
     return candidates[:4] + [candidates[fifth]]
+
+
+def select_recommendation_evidence(initial, rankings):
+    """Retain initial anchors and interleave targeted evidence, without another search."""
+    selected = {}
+    # Two original anchors, up to four diversified search hits, then remaining evidence.
+    order = [*initial[:2]]
+    order.extend(doc for row in zip_longest(*(r[:2] for r in rankings)) for doc in row if doc is not None)
+    order.extend(initial[2:])
+    order.extend(doc for row in zip_longest(*(r[2:] for r in rankings)) for doc in row if doc is not None)
+    for doc in order:
+        selected.setdefault(doc.id, doc)
+    return list(selected.values())[:8]
 
 
 def stored_documents(collection):

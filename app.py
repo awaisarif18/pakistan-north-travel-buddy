@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import streamlit as st
 import usage_stats
+from recommendations import load_catalog
 from langgraph.checkpoint.memory import InMemorySaver
 
 from rag import TRAVEL_NOTICE, page_label
@@ -34,6 +35,11 @@ CITATION = r"\[(PDF pages? \d+(?:-\d+)?(?:; PDF pages? \d+(?:-\d+)?)*)\]"
 def resources():
     # Only stateless clients are shared; each session owns its graph/checkpointer.
     return open_retriever(mode=os.getenv("RETRIEVAL_MODE", "dense"), chat_evidence=True), chat_model(), chat_model(rewrite=True)
+
+
+@st.cache_resource
+def destination_catalog():
+    return load_catalog()
 
 
 @st.cache_resource
@@ -154,7 +160,8 @@ if view == "Plan a Trip":
     st.stop()
 try:
     if "conversation" not in st.session_state:
-        st.session_state.conversation = (str(uuid4()), build_workflow(*resources(), checkpointer=InMemorySaver()))
+        st.session_state.conversation = (str(uuid4()), build_workflow(
+            *resources(), checkpointer=InMemorySaver(), recommendation_catalog=destination_catalog()))
     thread_id, workflow = st.session_state.conversation
     turns = workflow.get_state({"configurable": {"thread_id": thread_id}}).values.get("turns", [])
 except Exception:
