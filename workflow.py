@@ -80,6 +80,7 @@ class ChatState(TypedDict, total=False):
     rewrite_fallback: bool
     recommendation_request: dict
     recommendation_note: str
+    preferences: dict
 
 
 def open_retriever(k=5, mode="dense", *, chat_evidence=False):
@@ -145,7 +146,7 @@ def prepare_question(state: ChatState):
     # Preserve the exact input string, including whitespace, for cache parity.
     return {"question": state["question"], "retrieval_query": state["question"],
             "documents": [], "matches": [], "payload": {}, "answer": {}, "rewrite_fallback": False,
-            "recommendation_request": {}, "recommendation_note": ""}
+            "recommendation_request": {}, "recommendation_note": "", "preferences": {}}
 
 
 def needs_rewrite(state: ChatState):
@@ -197,8 +198,8 @@ def validate_citations(state: ChatState):
         answer["app_notes"] = notes
     turn = {"question": state["question"], "retrieval_query": state["retrieval_query"],
             "answer": answer, "matches": state["matches"]}
-    if state.get("recommendation_request"):
-        turn["preferences"] = state["recommendation_request"]["preferences"]
+    if state.get("preferences"):
+        turn["preferences"] = state["preferences"]
     # Replace the list once after validation; never replay previous messages as input.
     return {"answer": answer, "turns": [*state.get("turns", []), turn]}
 
@@ -240,6 +241,7 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None, recomme
         prompt = PROMPT
         if catalog:
             schema = recommendations.decision_schema(schema)
+            inputs["original_question"] = state["question"]
             inputs.update(recommendations.discovery_context(catalog, state.get("turns", [])))
             prompt = ChatPromptTemplate.from_messages([("system", INSTRUCTION + recommendations.UNDERSTAND),
                                                       ("human", "{context}")])
@@ -248,10 +250,13 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None, recomme
         payload = completed_payload(response)
         try:
             request = recommendations.parse_request(payload, catalog) if catalog else {}
+            preferences = request["preferences"] if request else {}
+            if catalog and not request:
+                preferences = recommendations.parse_preferences(payload)
         except ValueError:
             return {"payload": payload, "recommendation_note": "The comparison could not be prepared. "
                     "Any supported guidance below is from the initial search."}
-        return {"payload": payload, "recommendation_request": request}
+        return {"payload": payload, "recommendation_request": request, "preferences": preferences}
 
     def recommend(state: ChatState):
         return recommendations.recommendation_pass(state, retriever, chat, answer_schema, supported_parts)
