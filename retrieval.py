@@ -39,14 +39,13 @@ def select_chat_evidence(query, candidates):
     return candidates[:4] + [candidates[fifth]]
 
 
-def select_recommendation_evidence(initial, rankings):
+def select_recommendation_evidence(initial, rankings, *, anchors=()):
     """Retain initial anchors and interleave targeted evidence, without another search."""
     selected = {}
-    # Two original anchors, up to four diversified search hits, then remaining evidence.
-    order = [*initial[:2]]
-    order.extend(doc for row in zip_longest(*(r[:2] for r in rankings)) for doc in row if doc is not None)
+    # Keep two initial anchors and available comparison evidence before other targeted hits.
+    order = [*initial[:2], *anchors]
+    order.extend(doc for row in zip_longest(*rankings) for doc in row if doc is not None)
     order.extend(initial[2:])
-    order.extend(doc for row in zip_longest(*(r[2:] for r in rankings)) for doc in row if doc is not None)
     for doc in order:
         selected.setdefault(doc.id, doc)
     return list(selected.values())[:8]
