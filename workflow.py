@@ -186,9 +186,10 @@ def validate_citations(state: ChatState):
     if state.get("rewrite_fallback"):
         notes.append("Include the destination in your question if the result is too broad.")
     if state.get("recommendation_note"):
-        notes.append(state["recommendation_note"])
-        if not parts:
-            answer["text"] = "The recommendation could not be completed. Please try again later."
+        if parts:
+            notes.append(state["recommendation_note"])
+        else:
+            answer["text"] = state["recommendation_note"]
             answer["technical_failure"] = True
     clarification = recommendations.clarification_question(state["payload"])
     if not parts and clarification:
@@ -257,10 +258,13 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None, recomme
             if catalog and not request:
                 preferences = recommendations.effective_context(payload, state.get("turns", []))["preferences"]
         except ValueError:
-            return {"payload": payload, "recommendation_note": "The comparison could not be prepared. "
-                    "Any supported guidance below is from the initial search."}
+            return recommendations.source_fallback(state["documents"])
+        scope = payload.get("conversation_scope", "")
+        if request:
+            # An information request is not a personalized answer, even if the model drafted one.
+            payload = {"answerable": False, "paragraphs": []}
         return {"payload": payload, "recommendation_request": request, "preferences": preferences,
-                "conversation_scope": payload.get("conversation_scope", "")}
+                "conversation_scope": scope}
 
     def recommend(state: ChatState):
         return recommendations.recommendation_pass(state, retriever, chat, answer_schema, supported_parts, catalog)

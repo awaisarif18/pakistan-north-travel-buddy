@@ -39,6 +39,9 @@ def resources():
 
 @st.cache_resource
 def destination_catalog():
+    # Verified provenance is not release approval. Keep the experimental path opt-in.
+    if os.getenv("ENABLE_RECOMMENDATIONS", "false").strip().lower() != "true":
+        return []
     return load_catalog()
 
 
