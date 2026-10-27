@@ -7,6 +7,11 @@ import re
 from uuid import uuid4
 
 import streamlit as st
+
+from runtime_bootstrap import discard_legacy_conversation, refresh_legacy_runtime
+
+refresh_legacy_runtime(st.cache_resource.clear)
+
 import usage_stats
 from recommendations import load_catalog
 from langgraph.checkpoint.memory import InMemorySaver
@@ -62,6 +67,7 @@ except (ValueError, TypeError):
     st.stop()
 if "usage" not in st.session_state:
     st.session_state.usage = new_usage()
+discard_legacy_conversation(st.session_state)
 
 
 def show_text(text):

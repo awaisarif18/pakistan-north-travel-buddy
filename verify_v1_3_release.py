@@ -63,6 +63,59 @@ def ask(graph, limiter):
 
 
 class ReleaseChecks(unittest.TestCase):
+    def test_startup_refreshes_legacy_imports_without_resetting_normal_reruns(self):
+        import subprocess
+        import sys
+        # Synthetic old API: remove only the two members introduced in v1.3.
+        # A subprocess prevents disturbing the quota ContextVar in the other tests.
+        code = '''import ast, sys, types
+from pathlib import Path
+from unittest.mock import Mock
+root=Path.cwd()
+tree=ast.parse((root/'usage_limits.py').read_text(encoding='utf-8'))
+tree.body=[n for n in tree.body if not (isinstance(n,ast.FunctionDef) and n.name=='reserve_additional_calls')]
+limiter=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='ProcessLimiter')
+limiter.body=[n for n in limiter.body if not (isinstance(n,ast.FunctionDef) and n.name=='extend')]
+old=types.ModuleType('usage_limits');old.__file__=str(root/'usage_limits.py');sys.modules['usage_limits']=old
+exec(compile(tree,old.__file__,'exec'),old.__dict__)
+try:
+ import recommendations
+except ImportError as e:
+ assert 'reserve_additional_calls' in str(e)
+else:raise AssertionError('Legacy failure not reproduced')
+for name in ('workflow','planner'):
+ sys.modules[name]=types.ModuleType(name)
+from runtime_bootstrap import refresh_legacy_runtime
+clear=Mock()
+assert refresh_legacy_runtime(clear) is True
+clear.assert_called_once()
+import recommendations,usage_limits,gemini_protection,workflow,planner
+assert recommendations.reserve_additional_calls is usage_limits.reserve_additional_calls
+assert gemini_protection.api_call is usage_limits.api_call
+assert callable(workflow.build_workflow) and callable(planner.build_planner)
+context=usage_limits._CURRENT_LIMITER
+assert refresh_legacy_runtime(clear) is False and usage_limits._CURRENT_LIMITER is context
+clear.assert_called_once()
+print('Legacy import reproduced, refreshed, and fresh rerun left unchanged.')
+'''
+        done = subprocess.run([sys.executable, "-B", "-c", code], cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+
+    def test_legacy_graph_reset_keeps_session_usage_and_planner_result(self):
+        from types import SimpleNamespace
+        from runtime_bootstrap import discard_legacy_conversation
+        usage = new_usage()
+        state = {"conversation": ("old", SimpleNamespace(nodes={"validate_citations": None})),
+                 "pending_submission": {"text": "old pending"}, "usage": usage, "trip_plan": "retained"}
+        discard_legacy_conversation(state)
+        self.assertNotIn("conversation", state)
+        self.assertNotIn("pending_submission", state)
+        self.assertIs(state["usage"], usage)
+        self.assertEqual(state["trip_plan"], "retained")
+        state["conversation"] = ("current", SimpleNamespace(nodes={"recommend_destinations": None}))
+        discard_legacy_conversation(state)
+        self.assertIn("conversation", state)
+
     def test_direct_factual_answer_does_not_expand_for_candidate_hints(self):
         graph, limiter, _ = fixtures([decision()])
         result = ask(graph, limiter)
@@ -95,6 +148,7 @@ class ReleaseChecks(unittest.TestCase):
         source = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('os.getenv("ENABLE_RECOMMENDATIONS", "true")', source)
         self.assertIn("Destination recommendations are BETA", source)
+        self.assertLess(source.index("refresh_legacy_runtime(st.cache_resource.clear)"), source.index("from recommendations import"))
         baseline = json.loads((ROOT / "evals/v1_3_development_baseline.json").read_text(encoding="utf-8"))
         self.assertEqual(baseline["summary"]["overall_pass"], 3)
         self.assertEqual(baseline["summary"]["joint_usefulness_and_full_alignment"], 4)

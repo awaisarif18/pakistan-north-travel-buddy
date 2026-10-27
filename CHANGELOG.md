@@ -1,5 +1,11 @@
 # Changelog
 
+## Post-v1.3.0 startup fix
+
+Refresh cached pre-v1.3 module APIs before loading recommendation imports during
+Streamlit hot updates. Replace old compiled chat graphs without resetting session
+usage allowances. Normal reruns leave quota state and cached resources intact.
+
 ## v1.3.0 - Destination recommendation BETA
 
 - Add intent-aware destination discovery, comparisons and preference refinement to Chat.
