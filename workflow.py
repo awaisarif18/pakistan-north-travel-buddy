@@ -16,6 +16,7 @@ from langsmith import get_current_run_tree, tracing_context
 import rag
 from gemini_protection import EMBEDDING_CACHE_LOCK, invoke_chat, protected_embeddings_client, completed_payload
 from usage_limits import question_limit
+import recommendations
 
 ALPHA_NOTICE = ("Alpha testing: Responses may be incomplete or inaccurate. Verify routes, access, "
                 "prices, and safety information before travelling.")
@@ -77,6 +78,10 @@ class ChatState(TypedDict, total=False):
     payload: dict
     answer: dict
     rewrite_fallback: bool
+    recommendation_request: dict
+    recommendation_note: str
+    preferences: dict
+    conversation_scope: str
 
 
 def open_retriever(k=5, mode="dense", *, chat_evidence=False):
@@ -141,7 +146,8 @@ def prepare_question(state: ChatState):
         raise ValueError("Enter a nonempty question.")
     # Preserve the exact input string, including whitespace, for cache parity.
     return {"question": state["question"], "retrieval_query": state["question"],
-            "documents": [], "matches": [], "payload": {}, "answer": {}, "rewrite_fallback": False}
+            "documents": [], "matches": [], "payload": {}, "answer": {}, "rewrite_fallback": False,
+            "recommendation_request": {}, "recommendation_note": "", "preferences": {}, "conversation_scope": ""}
 
 
 def needs_rewrite(state: ChatState):
@@ -179,20 +185,34 @@ def validate_citations(state: ChatState):
         notes.append("Some details could not be supported by the guide and were omitted.")
     if state.get("rewrite_fallback"):
         notes.append("Include the destination in your question if the result is too broad.")
+    if state.get("recommendation_note"):
+        if parts:
+            notes.append(state["recommendation_note"])
+        else:
+            answer["text"] = state["recommendation_note"]
+            answer["technical_failure"] = True
+    clarification = recommendations.clarification_question(state["payload"])
+    if not parts and clarification:
+        answer["text"] = clarification
+        answer["clarification"] = True
     if notes:
         answer["app_notes"] = notes
     turn = {"question": state["question"], "retrieval_query": state["retrieval_query"],
             "answer": answer, "matches": state["matches"]}
+    if state.get("preferences"):
+        turn["preferences"] = state["preferences"]
+    if state.get("conversation_scope") in {"continuation", "new_topic"}:
+        turn["conversation_scope"] = state["conversation_scope"]
     # Replace the list once after validation; never replay previous messages as input.
     return {"answer": answer, "turns": [*state.get("turns", []), turn]}
 
 
-def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
+def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None, recommendation_catalog=None):
     rewriter = rewriter if rewriter is not None else chat_model(rewrite=True)
+    catalog = recommendation_catalog or []
 
     def rewrite_question(state: ChatState):
-        recent = [{"question": turn["question"][:question_limit()], "resolved_question": turn["retrieval_query"][:question_limit()],
-                   "answer": turn["answer"]["text"][:1200]} for turn in state["turns"][-4:]]
+        recent = recommendations.recent_exchanges(state["turns"])
         chain = REWRITE_PROMPT | rewriter.with_structured_output(REWRITE_SCHEMA, method="json_schema", include_raw=True)
         response = invoke_chat(chain, {"context": json.dumps(
             {"recent_exchanges": recent, "question": state["question"]}, ensure_ascii=False,
@@ -218,13 +238,36 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
             return {"payload": {"answerable": False, "paragraphs": []}}
         context = [{"source_id": f"S{i}", "text": doc.page_content}
                    for i, doc in enumerate(state["documents"], 1)]
-        chain = PROMPT | chat.with_structured_output(
-            answer_schema(item["source_id"] for item in context), method="json_schema", include_raw=True,
-        )
-        response = invoke_chat(chain, {"context": json.dumps(
-            {"question": state["retrieval_query"], "excerpts": context}, ensure_ascii=False,
-        )})
-        return {"payload": completed_payload(response)}
+        schema = answer_schema(item["source_id"] for item in context)
+        inputs = {"question": state["retrieval_query"], "excerpts": context}
+        prompt = PROMPT
+        if catalog:
+            schema = recommendations.decision_schema(schema)
+            inputs["original_question"] = state["question"]
+            inputs.update(recommendations.discovery_context(catalog, state.get("turns", [])))
+            prompt = ChatPromptTemplate.from_messages([("system", INSTRUCTION + recommendations.UNDERSTAND),
+                                                      ("human", "{context}")])
+        chain = prompt | chat.with_structured_output(schema, method="json_schema", include_raw=True)
+        response = invoke_chat(chain, {"context": json.dumps(inputs, ensure_ascii=False)})
+        payload = completed_payload(response)
+        try:
+            has_answer = bool(supported_parts(payload.get("paragraphs"), {c["source_id"]: c for c in context})[0])
+            request = recommendations.parse_request(payload, catalog, question=state["retrieval_query"],
+                                                    has_answer=has_answer, turns=state.get("turns", [])) if catalog else {}
+            preferences = request["preferences"] if request else {}
+            if catalog and not request:
+                preferences = recommendations.effective_context(payload, state.get("turns", []))["preferences"]
+        except ValueError:
+            return recommendations.source_fallback(state["documents"])
+        scope = payload.get("conversation_scope", "")
+        if request:
+            # An information request is not a personalized answer, even if the model drafted one.
+            payload = {"answerable": False, "paragraphs": []}
+        return {"payload": payload, "recommendation_request": request, "preferences": preferences,
+                "conversation_scope": scope}
+
+    def recommend(state: ChatState):
+        return recommendations.recommendation_pass(state, retriever, chat, answer_schema, supported_parts, catalog)
 
     graph = StateGraph(ChatState)
     nodes = [
@@ -232,6 +275,7 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
         ("rewrite_question", rewrite_question),
         ("retrieve_evidence", retrieve_evidence),
         ("generate_grounded_answer", generate_grounded_answer),
+        ("recommend_destinations", recommend),
         ("validate_citations", validate_citations),
     ]
     for name, node in nodes:
@@ -241,7 +285,10 @@ def build_workflow(retriever, chat, rewriter=None, *, checkpointer=None):
                                 else "retrieve_evidence", ["rewrite_question", "retrieve_evidence"])
     graph.add_edge("rewrite_question", "retrieve_evidence")
     graph.add_edge("retrieve_evidence", "generate_grounded_answer")
-    graph.add_edge("generate_grounded_answer", "validate_citations")
+    graph.add_conditional_edges("generate_grounded_answer", lambda state: "recommend_destinations"
+                                if state.get("recommendation_request") else "validate_citations",
+                                ["recommend_destinations", "validate_citations"])
+    graph.add_edge("recommend_destinations", "validate_citations")
     graph.add_edge("validate_citations", END)
     return graph.compile(checkpointer=checkpointer)
 

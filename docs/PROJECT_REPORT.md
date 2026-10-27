@@ -2380,3 +2380,418 @@ The free store can be unavailable or archived after extended inactivity. Restore
 its data instead of silently replacing totals with zeros. Counters do not change
 session quotas, Gemini budgets, production tracing, feedback consent settings,
 49 document vectors, historical datasets/results or the existing release tags.
+
+## v1.3 recommendation development: first implementation slice
+
+Historical development record: branch `v1.3/intent-matching`, starting at `97dea03`.
+The following stage descriptions record their state at the time. The owner later
+authorized the documented beta release described at the end of this report. Existing v1.0/v1.1 evaluations and v1.2 history remain
+unchanged. No new quality score or current-travel verification is claimed.
+
+Code inspection confirmed that Chat had no preference extraction or destination
+comparison step. Its literal excerpt-only instructions did not explain the
+difference between an unsupported travel fact and a reasonable suitability
+inference. The five-passage selector cannot guarantee broad destination coverage.
+These are architectural limitations, not measured failure rates for honeymoon,
+family or low-mobility questions. Existing v1.2 evidence demonstrated separate
+retrieval/context losses and factual misinterpretation despite valid citations.
+
+`recommendations.py` supplies a bounded optional path. The existing answer call
+can answer directly or extract explicit preferences and request one or two
+targeted searches. There is no separate classifier call, keyword router, agent
+loop or new model. `workflow.py` retains conditional rewriting and session-owned
+state, stores recommendation preferences with completed turns and supplies the
+last four questions/preferences for refinement. Latest explicit preferences take
+precedence by instruction; conversation text never becomes travel evidence.
+
+`data/destination_profiles.json` contains 12 draft profiles and 34 exact excerpts
+with source heading/context, original chunk IDs, existing page ranges and text
+fingerprints. They cover the eight chapter groupings without treating chapters
+as administrative geography. Unknowns remain explicit. Profiles contain facts,
+not a honeymoon ranking, accessibility certification or numeric suitability
+score. Runtime admits only owner-verified profiles whose provenance still matches
+the stored Chroma passages. Missing, unreviewed or stale entries cannot silently
+become trusted facts. The catalog is non-exhaustive, and other destinations may
+still be searched. No PDF or chunks.json is needed for runtime profile loading.
+
+`retrieval.py` retains two original evidence anchors, interleaves the leading
+targeted search hits, and fills remaining slots from available evidence, up to
+eight deduplicated original passages. It adds no extra search of its own. This
+selection policy is unmeasured on live recommendations and may still omit useful
+logistics. The final generation compares up to three destinations, explains
+inferred suitability using cited facts, and identifies tradeoffs and unknowns.
+It does not produce another itinerary or claim current travel conditions.
+
+`usage_limits.py` adds atomic reservation extension within the admitted workflow.
+It reserves one generation and at most two embedding calls before the optional
+pass. It does not count another session submission or reset cooldowns. Capacity
+exhaustion or malformed comparison output can retain the initial supported
+answer. Actual provider/timeout errors propagate and stop expensive work; there
+are no new retries. Invalid cited paragraphs are filtered independently.
+`usage_stats.py` excludes technical fallback-only messages and clarification
+questions from completed-answer totals. Valid cited partial answers still count
+once through the existing rendering path. No real counter writes were made.
+
+Standalone recommendations require at most two generations and three uncached
+query embeddings; a contextual recommendation can add the existing rewrite call.
+Factual generation counts are unchanged, but a verified catalog increases input
+context and may affect latency. Models, output caps, embedding prefixes and
+dimensions, planner queries, quota values and production tracing opt-out are
+unchanged. The original index was not opened during this implementation.
+
+Eleven focused synthetic checks and the existing conversation, planner, usage,
+Pacific-window, simplification and public-counter checks passed. The new checks
+exercise profile provenance/review gates, malformed requests, bounded calls,
+atomic concurrent reservation extension, partial fallbacks, independent invalid
+citations, preference context, session isolation, Streamlit source/alpha rendering,
+reruns, navigation and reset without quota reset. External transport was blocked
+or mocked. A Windows asyncio localhost socket restriction in the first test run
+was corrected in the test harness; it did not consume a provider attempt.
+
+The review artifact local recommendations_v1_3.md (`evals/recommendations_v1_3.md`, not distributed)
+contains the draft cases, source facts, results and remaining gates. All 16
+development labels and 12 profiles remain `needs_review`; the runtime feature is
+therefore gated off with the current draft catalog. After owner approval, mark
+only approved profile records verified, restart local Streamlit to clear its
+catalog cache and start a new conversation. The owner retains eight final cases
+privately until settings freeze. No historical held-out tuning has occurred.
+
+The proposed eight-turn pilot remains unexecuted: at most 16 generation attempts,
+20 query embeddings, zero document embeddings/retries/uploads, after reference
+approval. Real recommendation usefulness, factual support, routing compliance,
+latency and unseen-case generalization remain unverified. AppTest checks do not
+establish a fresh desktop or 390px visual review. No browser, commit, push, merge
+or deployment was performed for this slice. The profile JSON remains under the
+existing data ignore rule and must later be included explicitly as a selected
+application asset, without staging the data directory or dirty index files.
+
+### Reference corrections and future research gaps
+
+The owner authorized local corrections, not reference approval or live testing.
+The corrected draft keeps 12 stable destination IDs and all 16 development
+questions. It now has 37 exact profile excerpts and 110 development quotation
+references, all checked against the original PDF within the unchanged page ranges.
+The Naltar geography note was moved out of Hunza/Nagar. Miacher Kho's shorter walk
+and scenery, a Fairy Meadows cabin example and explicit Sost-Khunjerab fuel-gap
+evidence were added. Arang Kel's inconsistent elevation was excluded by narrowing
+the exact excerpt, without modifying or silently correcting the PDF/chunk.
+
+Facts now name their subject and scope so room categories, single-property
+examples, rough access, individual trek durations and lake-specific facility
+limitations are not generalized to entire regions. These scope notes are authored
+interpretation guidance, not additional source quotations or hard refusal rules.
+A small source-version registry records the original document fingerprint and
+source type; facts retain their chunk fingerprints and original page references.
+New destinations and free-form attributes require data/review updates, not new
+intent or comparison workflows. Non-PDF source metadata can be described later,
+but no web ingestion or non-PDF citation support was implemented here.
+
+Optional candidate IDs are now filtered as hints rather than rejecting otherwise
+valid searches. This does not relax strict evidence-ID validation. A failing
+offline regression reproduced the original behavior before the correction; all
+14 focused tests now pass, including future-attribute/new-destination fixtures.
+No completeness checklist, numeric suitability score, keyword rule or service
+was added. Unknown comfort remains a qualification, not a disqualification.
+
+The [research-gap checklist](RESEARCH_GAPS_v1_3.md) separates existing guide facts
+not yet profiled, missing comparison data and information needing current external
+verification. Official tourism/weather/transport and property sources were checked
+only as research leads. Nothing from those sites was ingested as trusted evidence.
+The original profiles/cases are preserved in an ignored local audit snapshot.
+All corrected profiles/cases remain `needs_review`; runtime recommendations remain
+gated off. No Gemini calls, embeddings, trace uploads, commits or deployment were
+performed for this correction batch.
+
+### First controlled live recommendation pilot
+
+The owner approved the corrected 12 profiles and 16 development references for
+the pilot only. Before marking them verified, all 37 profile quotes and 110
+development references matched a disposable copy of the unchanged 49-vector
+index. Its logical fingerprint remained
+`394c832e5e8bee68fa9f85fca85d97421081139d29838e162be5fe30e2c21dc6`.
+Approval scope is recorded explicitly, not treated as current travel or
+production verification. A fresh local catalog and clean session graphs enabled
+the existing recommendation path. No workflow, prompt or model setting was tuned.
+
+r01 and its r02 follow-up completed end-to-end with actual Gemini and dense
+retrieval. Both final outputs have valid source IDs and some useful content, but
+were reviewed as partial. r01's comparison is thin and includes an unsupported
+bakery detail. r02 loses the explicit honeymoon preference before the final
+comparison and groups Leepa with Neelum without the source's separate approach
+qualification. Its hidden first-pass paragraph also cites initial passages that
+do not support all catalog-derived facts; this was not displayed, but is a
+potential fallback risk. Valid citation identity is not factual support.
+
+r04's first generation returned HTTP 503. The pilot stopped without retrying.
+The owner then explicitly authorized one r04 workflow retry. Its first generation
+also returned 503, reusing the cached question embedding. All further API calls
+stopped. r05, r10, r11, r13 and r15 were never submitted. A 503 does not establish
+quota exhaustion or an excessive-input cause; neither failed call returned token
+usage. The exact provider cause remains unknown.
+
+Total actual usage across both runs: 6 generation attempts, 4 generation HTTP
+responses, 2 generation failures, and 7 successful query-embedding attempts.
+There were 8 retrieval operations including one cache hit, zero document
+embeddings, zero automatic retries, one explicitly authorized manual workflow
+retry, zero trace uploads and zero public counter writes. Original model budgets
+were retained, with earlier attempts carried into retry accounting. Provider
+attempt journals enforce the 16/20 hard ceilings, including failures.
+
+Successful generation input counts were 9,213 and 9,138 for initial decisions,
+then 5,309 and 5,125 for comparisons. Output totaled 906 tokens. r01/r02 workflow
+latencies were 41.832/53.353 seconds; the failed manual retry took 18.837 seconds.
+These are measured CLI workflow latencies, not hosted browser measurements.
+
+Only 2 of 6 recommendation turns completed, with 0 full passes and 2 partial
+results. No final refusal or excessive clarification occurred, but the 80%
+usefulness target is not established and neither factual control ran. No major
+unsupported route/access/duration/facility claim was confirmed in these two
+final outputs; this small sample cannot establish safety. The owner-held final
+cases remain untouched. Final testing is premature; complete development checks
+after provider recovery before approving a focused Phase 2 change.
+
+The local full pilot report (`evals/recommendations_v1_3_pilot.md`, not distributed) includes unchanged
+answers, per-case findings, full raw-data links, failures and the smallest next
+steps. Original Chroma bytes, source PDF/query cache, frozen evaluations and tags
+are preserved. No commit, push, merge, release or deployment was performed.
+
+The owner subsequently authorized another r04 attempt and requested ten-second
+pauses. The unchanged workflow recovered r04 with one generation and a cached
+embedding: 9,023 input tokens, 189 output tokens, 12.088 seconds. The answer gave
+three quieter places but lacked family-specific comparison and omitted material
+approach/trek qualifications, so its source review was partial. r05 then failed
+with HTTP 503 and the continuation stopped without retrying it. The harness
+enforced at least ten seconds between provider invocations and retained existing
+quota settings. A zero-call preflight fixed harness bookkeeping that had counted
+API events rather than unique prior r04 session submissions; it did not alter
+the application limiter or reset allowances.
+
+The updated cumulative totals are 8 generation attempts (5 successful responses,
+3 HTTP 503 failures), 8 successful query embeddings, 10 retrieval operations
+including 2 cache hits, zero automatic retries and 2 owner-authorized workflow
+retries. Three of six recommendation turns have completed, all partial; r05
+failed, and r10/r11 plus both factual controls remain unsubmitted. Known input
+tokens total 37,808 and output tokens 1,095, excluding unknown failed-call usage.
+The original 16/20 ceilings include all failures and are not reset. Full raw
+records and updated manual review are preserved in the separate continuation
+artifact linked from the pilot report. No final evaluation readiness is claimed.
+
+A further owner-authorized r05 retry succeeded at the search-decision stage
+(9,030 input / 179 output tokens), then failed with HTTP 503 at final comparison.
+It reused the question embedding and made two targeted query embeddings. Pauses
+between all new provider calls were verified above ten seconds. The cumulative
+pilot totals are now 10 generation attempts (6 successful responses, 4 failures),
+10 query embeddings and 3 explicitly authorized workflow retries. The original
+16/20 ceilings and zero automatic retries remain unchanged. No r05 final answer
+or new quality pass exists; r10/r11 and both factual controls remain unsubmitted.
+Known successful-call tokens total 46,838 input and 1,274 output; failed-call usage
+is unknown. The latest raw journal is linked from the same pilot report. Runtime
+prompts/settings and protected artifacts were not changed.
+
+
+#### Pilot continuation with three-minute provider-call spacing
+
+The owner authorized another retry and requested a three-minute initial pause
+and three minutes between all provider invocations. Measured minimums were
+180.000504 seconds initially and 180.017040 seconds between calls. All six new
+generations and five new query embeddings succeeded without setting/prompt
+changes. This does not prove why the previous four 503s occurred.
+
+r05 now gives useful paved-access/30-minute-walk choices, but broad altitude
+wording needs qualification. r10 compares Hunza/Skardu nature and lodging usefully,
+but Khaplu/Kharmang scope, statistical-average wording and access/effort tradeoffs
+remain problematic. Both are partial overall. r13 correctly gives June-September;
+r15 correctly recommends Sost before Khunjerab. Both factual controls pass.
+
+Cumulative attempts reached 16 generation calls, comprising 12 successful HTTP
+responses and four earlier 503 failures, and 15 successful query embeddings.
+The unchanged limiter matched those counts. r11 stopped at a pre-call budget
+assertion and made no retrieval or Gemini call; its generic harness failure label
+is not a provider failure or scored quality failure. Five of six recommendation
+turns completed, all partial overall; two fully align with stated preferences
+and three partially align. The 80% quality target is not established. There were
+no unnecessary final refusals or excessive clarifications. Valid citations did
+not prevent scope/claim errors. Phase 2 work is recommended before final testing.
+
+Known successful-generation tokens total 94,112 input and 2,647 output; failed-call
+token usage is unknown. There were 21 retrieval operations and six cache hits,
+four explicitly authorized workflow retries, zero automatic retries, document
+embeddings, trace uploads or public counter writes. The paced continuation took
+2,059.650 seconds including deliberate waits; measured provider HTTP time was
+80.083 seconds. These are CLI observations, not hosted latency measurements.
+
+The local pilot report (`evals/recommendations_v1_3_pilot.md`, not distributed) now includes all seven
+completed full answers, per-case source review, queries, selected evidence,
+latency and the separately retained raw journals. No prompts or production logic
+were tuned during the pilot. Protected index/cache/PDF/runtime/frozen-evaluation
+hashes, HEAD and tags are unchanged; staging is empty. No final held-out cases,
+commits, pushes, merges or deployment were involved.
+
+#### Phase 2 recommendation candidate, 2026-10-23
+
+The local candidate retains explicit preferences from direct answers and passes
+the original question, retrieval query and four recent preference records into
+the existing comparison. Search/comparison guidance now emphasizes documented
+attributes, scoped geography and named walking durations. No classifier call,
+model, retrieval algorithm, profile, planner or quota change was introduced.
+
+Nineteen focused offline checks passed, including direct-answer preference
+retention, restored checkpoint context, blanks, session isolation and saved-output
+rendering. Existing conversation, quota, usage-counter, planner and simplification
+checks passed with mocked providers and external network guards.
+
+The frozen five-turn live candidate used seven generation attempts and five
+new query embeddings, all successful HTTP responses and `STOP` finishes. It
+retained the three-minute initial/inter-call pacing only in the test runner.
+r11 continued the exact saved real baseline r10 turn without replaying r10;
+r01/r02 shared a separate fresh session. Outcomes were one pass (r04), two
+partial (r02/r10) and two failures (r01/r11). Family effort/lodging detail and
+named walk durations improved, but r01 unnecessarily refused, r11 attributed
+unsupported Skardu easy-access claims to a Hunza passage, and r10 still omitted
+necessary supporting citations. Better queries also retrieved Hunza lodging
+that the final selector subsequently dropped in r02.
+
+The quality gate failed. No prompts were tuned between cases, no failed cases
+were rerun, and unused budget was left unspent. No final held-out cases were
+opened. Source/index/profile/cache and historical evaluation fingerprints, HEAD
+and tags remain unchanged; nothing is staged, committed, pushed or deployed.
+The local Phase 2 report (`evals/recommendations_v1_3_phase2.md`, not distributed) contains full actual
+answers, source review, rankings/queries, timing, token usage and raw-data links.
+
+
+## v1.3.0: owner-approved destination recommendation beta
+
+The final recommendation quality target was not met. After reviewing the failures,
+the owner explicitly authorized an enabled, documented BETA rather than another
+quality-repair cycle. This decision changes release scope, not evaluation ratings.
+Historical development narratives above remain historical, not current blockers.
+
+### Shipped behavior
+
+- Existing PDF-grounded factual answers, page-range citations and unsupported-data refusals.
+- Intent/preference extraction in the existing initial Gemini call; no separate classifier.
+- Session-specific LangGraph memory, bounded recent context and preference refinement.
+- Non-exclusive reviewed destination profiles, at most two targeted searches, comparison anchors and an eight-passage ceiling.
+- Information requests discard provisional personalized drafts; one final comparison uses original passages and source-span annotations instead of duplicate quotations.
+- Source-backed facts, reasonable qualified suitability inferences and important unknowns have distinct roles. Citation validation remains mechanical, not semantic certification.
+- Provider/quota/incomplete comparison failures retain inspectable original evidence without raw JSON, a fabricated answer or automatic retries.
+- Existing itinerary planner, quota safeguards, alpha notice, feedback links and privacy settings remain in place.
+
+### Frozen development baseline
+
+The [curated baseline](../evals/v1_3_development_baseline.json) records the eight
+controlled questions, actual full answers, per-case ratings, selected source IDs,
+rankings, preferences, routing, prompt snapshots/hashes, runtime fingerprints,
+dependency pins, token usage and provider latency. It excludes credentials,
+thread identifiers, raw private traces and real public-user conversations.
+
+The candidate was evaluated at HEAD `0329ade` with its frozen uncommitted runtime,
+subsequently preserved in commit `f65d547`. Release preparation changes activation
+and a small interface notice, not those generation prompts or retrieval settings.
+
+| Case | Final overall result |
+|---|---|
+| r01 honeymoon | PASS |
+| r02 wife follow-up | PARTIAL |
+| r04 peaceful family holiday | PASS |
+| r05 parents/minimal walking | PARTIAL |
+| r10 Hunza vs Skardu | PASS |
+| r11 very-little-walking follow-up | FAIL |
+| r13 Rakaposhi season | PASS |
+| r15 Khunjerab refuelling | PASS |
+
+Three of six recommendation turns fully passed; four of six were fully useful
+and preference-aligned. Both factual controls passed, with zero unnecessary
+complete refusals. The original five-of-six alignment target and complete release
+gate were not achieved. No independent reserved v1.3 held-out evaluation was run.
+Ratings from previous implementations are not combined with this cohort.
+
+Actual live usage was 11 generation attempts and four new query embeddings,
+all successful; eight retrievals used cached embeddings. Every completion had
+STOP finish metadata. Minimum provider spacing was 60.301 seconds; summed
+provider latency was 74.610 seconds, excluding pauses. No document embeddings,
+automatic retries or trace uploads occurred. The continuous A and B conversations
+used actual newly generated answers and checkpoints, not synthetic history.
+
+### Confirmed limitations and severity
+
+- r11 selected a cited direct answer, omitted the new walking requirement from
+  structured preferences and dropped Skardu. Its Buskochi suggestion was presented
+  for very little walking without the source's 3?4-hour duration: physical pages
+  33?35, `p033-035-97d114c1c3a8`. This is a consequential effort/alignment failure.
+- r05 accurately stated the same duration but still recommended it for parents
+  preferring minimal walking. Useful Miacher and Qaqlasht alternatives do not
+  make the whole answer fully aligned. Qaqlasht source: pages 83?85,
+  `p083-085-e588f14f58f1`.
+- r02 repeated the guide's broad no-altitude-concerns wording for Galliyat:
+  pages 87?88, `p087-088-8428f4e31885`. The wording exists in the source but does
+  not establish individual altitude tolerance.
+- Nearby/day-trip wording can blur local versus wider regional stops. Minor
+  wording is distinguished from invented journey times, access guarantees or
+  materially wrong route origins.
+- A jeep journey alone does not establish rough road surfaces. Documented rocky
+  terrain or 4x4 requirements can reasonably support qualified challenging-access
+  advice. Driving to a destination does not establish little walking at a fort,
+  lake or trail. Individual accessibility is not certified.
+- Walking distances, current road conditions, accommodation facilities and
+  transport availability may need independent confirmation. Topic scope and
+  preference extraction remain model-dependent; correct checkpoint storage does
+  not guarantee correct use of memory.
+
+These limitations are accepted beta risks, not successful safety or quality
+checks. The interface keeps the alpha caution and adds a short recommendation
+BETA notice without a redesign.
+
+### Runtime and deployment configuration
+
+Gemini `gemini-3.5-flash-lite` handles all text generation; `gemini-embedding-2`
+provides 3,072-dimensional query embeddings with the original prefixes. Dense
+retrieval remains default; BM25/hybrid alternatives and the original 49-vector
+index are unchanged. Chat/recommendation output cap is 1,800 tokens, rewrite cap
+300 and planner cap 2,400. Session defaults remain three chats and one trip per
+rolling hour, 12-second cooldown, 700-character input and two concurrent workflows.
+Process budgets remain 10 generations/minute and 300/Pacific day, plus
+30 embedding attempts/minute and 300/Pacific day. Counters are best-effort,
+process-local and reset on process restart. Production tracing remains off.
+
+`ENABLE_RECOMMENDATIONS=true` is the intended production setting and new code
+and example-file default. Explicit false still disables expansion. Set the root
+Streamlit Secret `ENABLE_RECOMMENDATIONS = "true"` if needed; no new credential
+is required. Verified profile metadata alone is not an activation flag. The owner
+now approves beta activation separately from historical source-review scope.
+
+The existing public GitHub repository deploys branch main, entry point app.py,
+on Streamlit Community Cloud. The complete committed Chroma snapshot is loaded
+without the PDF, ingestion or regeneration. Future main updates follow that
+existing connection. This release adds no deployment service, CI pipeline or
+infrastructure. GitHub has no configured Actions workflow, required checks,
+branch protection/ruleset or deployment record at inspection time; an empty
+status list is not a failed CI run. Cloud deployment commit and secret values
+may be unavailable through terminal APIs and must not be claimed as verified.
+
+Release preparation uses terminal-only offline checks. No browser, AppTest,
+Playwright, screenshot, graphical UI inspection, Gemini call or embedding call
+is part of release verification. The owner performs all hosted visual checks.
+
+### Future model comparison and rollback
+
+Use the frozen baseline without rewriting these scores. For a future model,
+record the exact new model/configuration, keep retrieval/source contract fixed,
+use actual continuous conversations, count all calls and report usefulness,
+alignment and claim support separately. Fresh independent cases are needed for
+generalization; do not tune on reserved final questions.
+
+The production rollback reference before this release is main commit
+`97dea039d254c3be07073983501f2c8390f5c85f`; tag `v1.2.0` preserves the previous
+published release. Roll back a merged change using a normal revert commit,
+not reset or force-push. An explicit false feature flag is a narrower operational
+disablement. Preserve all original tags and the index.
+
+
+Release-integrity results: 60 existing non-graphical recommendation checks passed;
+five portable contract/configuration tests and seven controlled conversation
+scenarios passed, along with quota/concurrency, citation, planner and non-UI
+text-rendering regressions. The portable suite passed on Windows Python 3.13
+and Python 3.12.14 with the exact pinned requirements; pip check found no
+incompatibilities. These are offline integrity checks, not new recommendation
+quality scores. Three AppTest-based checks were deliberately not executed.
