@@ -4,6 +4,66 @@ A document-grounded AI travel assistant built using Retrieval-Augmented Generati
 
 The application retrieves information from a 92-page Northern Pakistan travel guide and generates answers with supporting PDF citations.
 
+## v1.3.0: destination recommendations BETA
+
+[Live demo](https://pakistan-north-travel-ai.streamlit.app/) ? [Release notes](docs/RELEASE_v1.3.0.md) ? [Changelog](CHANGELOG.md)
+
+Chat now supports intent-aware destination discovery, conditional recommendations,
+preference refinement and comparisons alongside PDF-grounded factual answers.
+The existing itinerary planner remains separate. Session memory, source citations,
+provider protections and all 49 original vectors are preserved.
+
+**Recommendation expansion is BETA and enabled by default.** The owner approved
+this release despite the original development quality target not being met.
+Recommendations may violate effort preferences or overstate access suitability.
+A citation proves which passage was selected, not that every inference is correct.
+Verify walking effort, access, altitude suitability and current facilities before travel.
+
+| Final development result | Actual result |
+|---|---:|
+| Recommendation turns fully passed | 3/6 |
+| Fully useful and preference-aligned | 4/6 |
+| Factual controls passed | 2/2 |
+| Unnecessary complete refusals | 0 |
+| Original target | Not met |
+
+r01, r04, r10, r13 and r15 passed overall; r02 and r05 were partial; r11 failed.
+In particular, Buskochi's documented 3?4-hour walk was offered for very little
+walking, and r11 dropped the active Skardu comparison. Some altitude language
+was overly reassuring. See the [frozen comparison baseline](evals/v1_3_development_baseline.json)
+for exact questions, answers, sources, prompts, configuration and API accounting.
+These are curated development results, not unseen-case accuracy.
+
+The initial call can finish a cited factual answer or request at most two targeted
+searches and one final recommendation generation. Request drafts are discarded.
+If expansion fails, original passages remain inspectable; the app does not promote
+a provisional personalized answer. Profiles guide discovery and are not a whitelist.
+
+Production/local configuration uses the same environment variable:
+
+```toml
+# Streamlit Community Cloud -> App settings -> Secrets
+ENABLE_RECOMMENDATIONS = "true"
+```
+
+An explicit `false` disables expansion. The v1.3 code default and `.env.example`
+are `true`; an existing Cloud secret can override that default. Restart the app
+or clear cached resources after changing it. No new API key is required.
+Production LangSmith tracing remains disabled. GitHub publication, Cloud deployment
+and the owner's visual checks are distinct; terminal-only release preparation
+cannot independently establish the current Cloud override or rendered UI.
+
+Run the portable, non-graphical offline checks with:
+
+```bash
+python verify_v1_3_release.py
+```
+
+The original private development traces remain local. Historical v1.0/v1.1 scores
+are unchanged. The [research-gap checklist](docs/RESEARCH_GAPS_v1_3.md) records
+future source improvements; broader recommendation quality and model upgrades
+belong to a later milestone.
+
 **v1.2.0:** a smaller answer-quality and planner-usability update. See the
 [release review](evals/v1_2_release_review.md) for actual checks and limitations,
 and the [GitHub release](https://github.com/awaisarif18/pakistan-north-travel-buddy/releases/tag/v1.2.0)
@@ -700,6 +760,7 @@ GEMINI_API_KEY = "your-private-key"
 GEMINI_CHAT_MODEL = "gemini-3.5-flash-lite"
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-2"
 RETRIEVAL_MODE = "dense"
+ENABLE_RECOMMENDATIONS = "true"
 FEEDBACK_FORM_URL = "https://forms.gle/5McdABdSnigwwdNz5"
 ```
 

@@ -20,6 +20,7 @@ st.html(f"<style>{Path(__file__).with_name('ui.css').read_text(encoding='utf-8')
 
 MOUNTAIN = '<span class="mountain-icon" aria-hidden="true"><i></i><b></b></span>'
 FEEDBACK_URL = os.getenv("FEEDBACK_FORM_URL", "").strip() or "https://forms.gle/5McdABdSnigwwdNz5"
+RECOMMENDATIONS_ENABLED = os.getenv("ENABLE_RECOMMENDATIONS", "true").strip().lower() == "true"
 EXAMPLES = [
     ("Khunjerab fuel stops", "local_gas_station", "Where should I refuel before traveling to Khunjerab Pass?"),
     ("Rakaposhi trekking season", "hiking", "What is the best season for Rakaposhi Base Camp?"),
@@ -39,8 +40,8 @@ def resources():
 
 @st.cache_resource
 def destination_catalog():
-    # Verified provenance is not release approval. Keep the experimental path opt-in.
-    if os.getenv("ENABLE_RECOMMENDATIONS", "false").strip().lower() != "true":
+    # v1.3 beta is enabled by default; an explicit environment override can disable it.
+    if not RECOMMENDATIONS_ENABLED:
         return []
     return load_catalog()
 
@@ -134,6 +135,8 @@ with st.sidebar:
             '<div><strong>North Tours</strong><span>Your Pakistan travel companion</span></div></div>')
     stats_panel = usage_stats.sidebar_metrics()
     view = st.radio("Explore", ["Chat", "Plan a Trip"], key="app_view", label_visibility="collapsed")
+    if RECOMMENDATIONS_ENABLED:
+        st.caption("Destination recommendations are BETA. Verify walking effort, access and suitability before travelling.")
     if st.button("New conversation", icon=":material/edit_square:", key="clear_chat", use_container_width=True):
         st.session_state.pop("conversation", None)
         st.session_state.pop("pending_submission", None)
